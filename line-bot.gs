@@ -112,7 +112,7 @@ function doPost(e) {
         if (!c) return;
         if (c.cmd === 'ใครอยู่') replyArea(ev, c.arg);
         else if (c.cmd === 'ค้นหา') replyFinder(ev.replyToken);
-        else if (c.cmd === 'ช่วยเหลือ') replyText(ev.replyToken, HELP_TEXT);
+        else if (c.cmd === 'ช่วยเหลือ') replyHelp(ev.replyToken);
         else if (c.cmd === 'ไอดีกลุ่ม') {
           var gid = (ev.source && ev.source.groupId) ? ev.source.groupId : '';
           var msg = !gid ? 'คำสั่งนี้ใช้ในกลุ่มเท่านั้น'
@@ -549,6 +549,54 @@ var HELP_TEXT =
   '❓ #ช่วยเหลือ\n' +
   'แสดงคำสั่งทั้งหมด\n\n' +
   '🎂 ทุกเช้าบอทแจ้งวันเกิดเพื่อนในกลุ่มให้อัตโนมัติ';
+
+// การ์ด #ช่วยเหลือ — คำสั่งทั้งหมด + ปุ่มกดใช้ได้ทันที (ถ้า LINE ไม่รับการ์ด ส่ง HELP_TEXT แทน)
+function helpSection(icon, cmd, desc, examples) {
+  var c = [
+    { type: 'text', text: icon + '  ' + cmd, weight: 'bold', size: 'md', color: '#1f9e3f', wrap: true },
+    { type: 'text', text: desc, size: 'sm', color: '#333333', wrap: true }
+  ];
+  if (examples) c.push({ type: 'text', text: examples, size: 'xs', color: '#888888', wrap: true });
+  return { type: 'box', layout: 'vertical', spacing: 'xs', contents: c };
+}
+
+function helpCard() {
+  var sep = function () { return { type: 'separator', margin: 'lg', color: '#dddddd' }; };
+  var body = [
+    helpSection('🔍', '#ค้นหา', 'เปิดเว็บค้นหาข้อมูลเพื่อน ค้นได้จากชื่อ ฉายา บ้าน จังหวัด ที่ทำงาน'),
+    sep(),
+    helpSection('📍', '#ใครอยู่ ชื่อจังหวัด', 'รายชื่อเพื่อนในจังหวัดนั้น พร้อมเบอร์ที่กดโทรได้เลย',
+      'ตัวอย่าง\n  #ใครอยู่ เชียงใหม่\n  #ใครอยู่ กทม\n  #ใครอยู่ โคราช\nพิมพ์ชื่อย่อ ชื่อเมือง หรือสะกดผิดเล็กน้อยได้'),
+    sep(),
+    helpSection('❓', '#ช่วยเหลือ', 'แสดงคำสั่งทั้งหมด (หน้านี้)'),
+    sep(),
+    helpSection('🎂', 'แจ้งวันเกิด', 'ทุกเช้าบอทแจ้งวันเกิดเพื่อนในกลุ่มให้อัตโนมัติ ไม่ต้องพิมพ์อะไร')
+  ];
+  body.forEach(function (b, i) { if (b.type === 'box' && i > 0) b.paddingTop = 'lg'; });
+  return {
+    type: 'flex',
+    altText: '🤖 คำสั่งบอท FINDER — #ค้นหา · #ใครอยู่ จังหวัด · #ช่วยเหลือ',
+    contents: {
+      type: 'bubble', size: 'mega',
+      header: { type: 'box', layout: 'vertical', backgroundColor: '#0b1a0e', paddingAll: 'lg', contents: [
+        { type: 'text', text: '🤖 FINDER', weight: 'bold', size: 'xl', color: '#33ff66' },
+        { type: 'text', text: 'คำสั่งทั้งหมด — พิมพ์ # นำหน้าเสมอ', size: 'xs', color: '#9be8ae', wrap: true }
+      ] },
+      body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: body },
+      footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: [
+        { type: 'button', style: 'primary', color: '#1f9e3f', height: 'sm',
+          action: { type: 'uri', label: '🔍 เปิดเว็บค้นหา', uri: APP_URL } },
+        { type: 'button', style: 'secondary', height: 'sm',
+          action: { type: 'message', label: '📍 #ใครอยู่ กทม', text: '#ใครอยู่ กทม' } }
+      ] }
+    }
+  };
+}
+
+function replyHelp(replyToken) {
+  var res = lineApi('message/reply', { replyToken: replyToken, messages: [helpCard()] });
+  if (res.getResponseCode() !== 200) replyText(replyToken, HELP_TEXT);
+}
 
 // "#ใครอยู่ เชียงใหม่" / "# ใครอยู่เชียงใหม่" → { cmd: 'ใครอยู่', arg: 'เชียงใหม่' } — ไม่มี # หรือไม่รู้จัก → null
 function parseCommand(text) {
