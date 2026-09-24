@@ -282,7 +282,7 @@ function getDataSheet() {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('FINDER')
     .addItem('✅ ย้ายข้อมูลที่ตรวจแล้ว', 'transferApproved')
-    .addItem('เตรียมช่องติ๊ก "ตรวจแล้ว" ในแท็บคำตอบ', 'setupReview')
+    .addItem('เตรียม / เติมช่องติ๊ก "ตรวจแล้ว"', 'setupReview')
     .addSeparator()
     .addItem('ดูแท็บข้อมูลหลักปัจจุบัน', 'showDataSheet')
     .addItem('ใช้แท็บนี้เป็นข้อมูลหลัก', 'lockDataSheet')
@@ -442,11 +442,16 @@ function ensureReviewColumns(resp) {
   return { check: check, status: status, created: created };
 }
 
-// ครั้งแรก: ทำเครื่องหมายคำตอบเก่าที่มีในข้อมูลหลักแล้ว ว่าไม่ต้องย้าย
+// ครั้งแรก (ตอนสร้างคอลัมน์): ทำเครื่องหมายคำตอบเก่าที่มีในข้อมูลหลักแล้ว ว่าไม่ต้องย้าย
+// กดซ้ำภายหลัง: แค่เติมช่องติ๊กให้แถวใหม่ — ไม่แตะสถานะ เพื่อไม่ให้คำตอบแก้ไขข้อมูลของคนเดิมถูกข้าม
 function setupReview() {
   var ui = SpreadsheetApp.getUi();
   var resp = getResponseSheet();
   var cols = ensureReviewColumns(resp);
+  if (!cols.created) {
+    ui.alert('เติมช่องติ๊ก "ตรวจแล้ว" ให้แถวใหม่แล้ว');
+    return;
+  }
   var data = getDataSheet();
   var dv = data.getDataRange().getValues(), dh = dv.shift().map(trimStr);
   var known = {};
