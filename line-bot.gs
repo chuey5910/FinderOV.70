@@ -9,7 +9,7 @@
 
 // ====== ตั้งค่า ======
 var LINE_TOKEN = 'วาง Channel access token ที่นี่';          // จาก Messaging API channel
-var LIFF_ID    = 'วาง LIFF ID ที่นี่';                        // เช่น '2001234567-AbCdEfGh' (ค่าเดียวกับในเว็บ)
+var LIFF_ID    = '2011726514-IlkDrkPZ';                      // ค่าเดียวกับในเว็บ
 var APP_URL    = 'https://liff.line.me/' + LIFF_ID;           // ปุ่มในกลุ่มเปิดผ่าน LIFF เพื่อให้ login LINE ได้
 var GROUP_ID   = '';  // ไม่ต้องกรอก! บอทบันทึก Group ID ของ "กลุ่มแรก" ที่มีคนพิมพ์ให้เอง (ดู saveGroupId)
 // Channel ID ของ LINE Login channel ที่สร้าง LIFF — ปกติคือเลขหน้าขีดของ LIFF ID
