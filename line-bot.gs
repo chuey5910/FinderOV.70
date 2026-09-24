@@ -550,7 +550,7 @@ var HELP_TEXT =
   'แสดงคำสั่งทั้งหมด\n\n' +
   '🎂 ทุกเช้าบอทแจ้งวันเกิดเพื่อนในกลุ่มให้อัตโนมัติ';
 
-// การ์ด #ช่วยเหลือ — คำสั่งทั้งหมด + ปุ่มกดใช้ได้ทันที (ถ้า LINE ไม่รับการ์ด ส่ง HELP_TEXT แทน)
+// การ์ด #ช่วยเหลือ — คำสั่งทั้งหมด + ปุ่มเปิดเว็บ (ถ้า LINE ไม่รับการ์ด ส่ง HELP_TEXT แทน)
 function helpSection(icon, cmd, desc, examples) {
   var c = [
     { type: 'text', text: icon + '  ' + cmd, weight: 'bold', size: 'md', color: '#1f9e3f', wrap: true },
@@ -585,9 +585,7 @@ function helpCard() {
       body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: body },
       footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: [
         { type: 'button', style: 'primary', color: '#1f9e3f', height: 'sm',
-          action: { type: 'uri', label: '🔍 เปิดเว็บค้นหา', uri: APP_URL } },
-        { type: 'button', style: 'secondary', height: 'sm',
-          action: { type: 'message', label: '📍 #ใครอยู่ กทม', text: '#ใครอยู่ กทม' } }
+          action: { type: 'uri', label: '🔍 เปิดเว็บค้นหา', uri: APP_URL } }
       ] }
     }
   };
