@@ -324,6 +324,8 @@ function getResponseSheet() {
 
 function trimStr(v) { return String(v == null ? '' : v).trim(); }
 function normKey(h) { return trimStr(h).replace(/[\s.\-_()]/g, '').toLowerCase(); }
+// ไม่สนข้อความในวงเล็บ: "วันเดือนปีเกิด (คศ)" = "วันเดือนปีเกิด"
+function baseKey(h) { return normKey(trimStr(h).replace(/\(.*?\)/g, '')); }
 
 // จับคู่คอลัมน์ข้อมูลหลัก → คอลัมน์คำตอบ ตามชื่อหัวคอลัมน์
 function mapColumns(dataHeaders, respHeaders) {
@@ -336,6 +338,10 @@ function mapColumns(dataHeaders, respHeaders) {
       for (var i = 0; i < respHeaders.length; i++) {
         if (respHeaders[i] === COL_CHECK || respHeaders[i] === COL_STATUS) continue;
         if (trimStr(respHeaders[i]) === n || normKey(respHeaders[i]) === normKey(n)) { found = i; return; }
+      }
+      for (var j = 0; j < respHeaders.length; j++) {
+        if (respHeaders[j] === COL_CHECK || respHeaders[j] === COL_STATUS) continue;
+        if (baseKey(respHeaders[j]) && baseKey(respHeaders[j]) === baseKey(n)) { found = j; return; }
       }
     });
     map.push(found);
