@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0d120d;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Share Tech Mono',monospace}
+  @keyframes blink{50%{opacity:0}}
+  input,button{font-family:inherit}
+  input::placeholder{color:#2f8a4a}
+  input:focus{outline:none}
+  ._noscroll::-webkit-scrollbar{display:none}
+  /* เมื่อรันจริงบนมือถือ/ในแอป LINE — ให้เต็มจอ ไม่มีกรอบ */
+  @media (max-width:520px){
+    body{align-items:stretch;justify-content:stretch}
+    .app-frame{width:100vw!important;height:100dvh!important;border-radius:0!important;padding:0!important;background:#050a05!important;box-shadow:none!important}
+    .app-frame .app-notch{display:none!important}
+    .app-screen{border-radius:0!important}
+  }
+</style>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<template id="__bundler_thumbnail">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" fill="#050a05"/>
+    <text x="50" y="44" font-family="monospace" font-size="13" fill="#33ff66" text-anchor="middle" font-weight="bold">FINDER_</text>
+    <text x="50" y="66" font-family="monospace" font-size="9" fill="#1f9e3f" text-anchor="middle">⌕ roster</text>
+  </svg>
+</template>
+</helmet>
+
+<div class="app-frame" style="width:300px;height:632px;border-radius:40px;padding:11px;background:#080808;box-shadow:0 24px 60px -18px rgba(0,0,0,.7),0 0 0 2px rgba(51,255,102,.06) inset;position:relative">
+  <div class="app-notch" style="position:absolute;top:11px;left:50%;transform:translateX(-50%);width:110px;height:24px;background:#080808;border-radius:0 0 16px 16px;z-index:30"></div>
+  <div class="app-screen" style="width:100%;height:100%;border-radius:30px;overflow:hidden;position:relative;display:flex;flex-direction:column;background:#050a05">
+    <!-- CRT overlays -->
+    <div style="position:absolute;inset:0;pointer-events:none;z-index:20;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px)"></div>
+    <div style="position:absolute;inset:0;pointer-events:none;z-index:19;background:radial-gradient(120% 80% at 50% 40%,rgba(51,255,102,.08),transparent 72%)"></div>
+    <!-- centered watermark (black bg removed via screen blend) -->
+    <img src="uploads/wallpaperiphone.PNG" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;opacity:.4;pointer-events:none;z-index:2" />
+
+    <!-- status bar -->
+    <div style="height:32px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#33ff66;font-size:12px;z-index:5">09:41 <span>[███] BAT100%</span></div>
+
+    <!-- ======= LIST VIEW ======= -->
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0;z-index:5">
+      <!-- header -->
+      <div style="padding:10px 16px 12px;border-bottom:1px dashed rgba(51,255,102,.4)">
+        <img src="uploads/ov70_crop.png" alt="VAJIRAVUDH 70" style="display:block;width:100%;height:auto;mix-blend-mode:screen;margin:0 0 6px" />
+        <div style="font-family:'VT323',monospace;font-size:42px;line-height:.8;color:#33ff66;text-shadow:0 0 10px rgba(51,255,102,.6);letter-spacing:2px">FINDER_</div>
+        <div style="margin-top:5px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;color:#1f9e3f;letter-spacing:.5px;white-space:nowrap">// ฐานข้อมูลบุคคล : {{ total }} records</span>
+          <span style="font-size:14px;letter-spacing:1px;white-space:nowrap;{{ statusStyle }}">{{ statusLabel }}</span>
+        </div>
+      </div>
+      <!-- search + filters -->
+      <div style="padding:12px 16px 10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #33ff66;background:rgba(51,255,102,.06)">
+          <span style="color:#1f9e3f;font-size:14px">&gt;</span>
+          <input value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นชื่อ · นามสกุล · ฉายา" style="flex:1;min-width:0;border:none;background:transparent;color:#7dffa0;font-family:'Kanit',sans-serif;font-size:16px;padding:0" />
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}"><span onClick="{{ clearQuery }}" style="color:#33ff66;font-size:14px;cursor:pointer">✕</span></sc-if>
+        </div>
+        <div style="display:flex;flex-wrap:nowrap;gap:6px;margin-top:11px;font-family:'Kanit',sans-serif">
+          <span onClick="{{ selectAll }}" style="{{ allStyle }}">ทั้งหมด</span>
+          <span onClick="{{ toggleIn }}" style="{{ inStyle }}">{{ inLabel }}</span>
+          <span onClick="{{ toggleLek }}" style="{{ lekStyle }}">{{ lekLabel }}</span>
+        </div>
+        <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-wrap:nowrap;gap:6px;margin-top:8px;padding:8px 10px;border:1px dashed rgba(51,255,102,.4);background:rgba(51,255,102,.04);font-family:'Kanit',sans-serif">
+            <sc-for list="{{ panelHouses }}" as="h" hint-placeholder-count="4">
+              <span onClick="{{ h.onClick }}" style="{{ h.style }}">{{ h.label }}</span>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <!-- results -->
+      <div class="_noscroll" style="flex:1;overflow-y:auto;padding:2px 16px 14px;min-height:0">
+        <div style="font-size:10px;color:#1f9e3f;letter-spacing:1px;padding:4px 0 4px;border-bottom:1px dashed rgba(51,255,102,.3)">FOUND: {{ count }} &nbsp;|&nbsp; SORT: NAME↑</div>
+        <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:40px 8px;text-align:center;color:#33ff66;font-family:'Kanit',sans-serif">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:2px">◌ กำลังโหลดข้อมูล…</div>
+            <div style="margin-top:8px;font-size:12px;color:#1f9e3f">เชื่อมต่อฐานข้อมูล</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ results }}" as="p" hint-placeholder-count="4">
+            <div onClick="{{ p.open }}" style="display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid rgba(51,255,102,.12);cursor:pointer">
+              <span style="color:#1f9e3f;font-size:12px">{{ p.num }}</span>
+              <div style="width:38px;height:38px;flex:none;border:1px solid #33ff66;background:rgba(51,255,102,.1);display:flex;align-items:center;justify-content:center;font-family:'Kanit',sans-serif;font-weight:700;font-size:14px;color:#33ff66">{{ p.initials }}</div>
+              <div style="min-width:0;flex:1;font-family:'Kanit',sans-serif">
+                <div style="font-size:16px;color:#c9ffd6;font-weight:600;line-height:1.25">{{ p.name }}</div>
+                <div style="font-size:16px;color:#1f9e3f;line-height:1.3">ฉายา {{ p.chaya }}</div>
+              </div>
+              <span style="color:#33ff66;font-size:13px">▸</span>
+            </div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:34px 8px;text-align:center;color:#1f9e3f;font-size:13px;letter-spacing:1px">
+            <div style="font-size:15px;color:#ff5a5a">! NO MATCH</div>
+            <div style="margin-top:8px;font-family:'Kanit',sans-serif;font-size:12px">ไม่พบรายชื่อที่ตรงกับ “{{ query }}”</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ======= DETAIL VIEW ======= -->
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;min-height:0;z-index:5">
+      <div style="padding:8px 16px 0;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#33ff66">
+        <span onClick="{{ back }}" style="cursor:pointer">&lt; RETURN</span><span style="color:#1f9e3f">REC {{ sel.rec }}/{{ total }}</span>
+      </div>
+      <!-- hero -->
+      <div style="padding:14px 16px 12px;border-bottom:1px dashed rgba(51,255,102,.4)">
+        <div style="display:flex;gap:14px;align-items:center">
+          <div style="width:80px;height:80px;flex:none;border:1px solid #33ff66;background:rgba(51,255,102,.08);display:flex;align-items:center;justify-content:center;font-family:'Kanit',sans-serif;font-weight:700;font-size:30px;color:#33ff66;box-shadow:0 0 14px rgba(51,255,102,.3) inset">{{ sel.initials }}</div>
+          <div style="font-family:'Kanit',sans-serif;min-width:0">
+            <div style="font-size:19px;font-weight:700;color:#c9ffd6;line-height:1.1">{{ sel.name }}</div>
+            <div style="font-size:12px;color:#33ff66;margin-top:2px">ฉายา {{ sel.chaya }}</div>
+            <div style="margin-top:7px;display:inline-block;font-size:10px;padding:3px 9px;background:#33ff66;color:#052b0f;font-weight:600">{{ sel.badge }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- READ MODE -->
+      <sc-if value="{{ notEditing }}" hint-placeholder-val="{{ true }}">
+      <div class="_noscroll" style="flex:1;overflow-y:auto;padding:10px 16px 12px;min-height:0">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;padding:7px 10px;border:1px solid rgba(255,176,0,.6);background:rgba(255,176,0,.08);font-family:'Kanit',sans-serif">
+          <span style="color:#ffb000;font-size:12px">◍</span>
+          <span style="font-size:11px;color:#ffb000">อัพเดตล่าสุด</span>
+          <span style="margin-left:auto;font-size:12px;color:#ffd98a;font-weight:600">{{ sel.updated }}</span>
+        </div>
+        <div style="font-family:'Kanit',sans-serif">
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ชื่อ</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.first }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">นามสกุล</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.last }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ฉายา</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.chaya }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">คณะเด็กเล็ก</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.lekVal }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">คณะเด็กใน</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.inVal }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">วันเดือนปีเกิด</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.dob }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">อายุ</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.age }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">เบอร์โทรศัพท์</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.tel }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ID Line</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.line }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">จว.ที่อยู่</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.province }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ทำงาน</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.work }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ตำแหน่ง</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.position }}</span></div>
+        </div>
+      </div>
+      <!-- actions -->
+      <div style="display:flex;padding:12px 16px 16px;gap:9px;font-family:'Kanit',sans-serif;border-top:1px dashed rgba(51,255,102,.4)">
+        <a href="{{ sel.telHref }}" style="flex:1;text-decoration:none;text-align:center;padding:12px 0;border:1px solid #33ff66;color:#33ff66;font-size:13px;font-weight:600">📞 โทร</a>
+        <div onClick="{{ chat }}" style="flex:1;text-align:center;padding:12px 0;background:#33ff66;color:#052b0f;font-size:13px;font-weight:700;cursor:pointer">💬 คัดลอก ID Line</div>
+      </div>
+      </sc-if>
+
+      <!-- EDIT MODE -->
+      <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
+      <div class="_noscroll" style="flex:1;overflow-y:auto;padding:12px 16px;min-height:0">
+        <div style="font-size:10px;color:#ffb000;letter-spacing:1px;margin-bottom:8px">✎ EDIT MODE — แก้ไขข้อมูล</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">เบอร์โทรศัพท์<input value="{{ draft.tel }}" onInput="{{ setTel }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">ID Line<input value="{{ draft.line }}" onInput="{{ setLine }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">จว.ที่อยู่<input value="{{ draft.province }}" onInput="{{ setProvince }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">ทำงาน<input value="{{ draft.work }}" onInput="{{ setWork }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">ตำแหน่ง<input value="{{ draft.position }}" onInput="{{ setPosition }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+        </div>
+      </div>
+      <div style="display:flex;padding:12px 16px 16px;gap:8px;font-family:'Kanit',sans-serif;border-top:1px dashed rgba(51,255,102,.4)">
+        <div onClick="{{ cancelEdit }}" style="flex:1;text-align:center;padding:11px 0;border:1px solid #ff5a5a;color:#ff5a5a;font-size:12px;font-weight:600;cursor:pointer">[ ยกเลิก ]</div>
+        <div onClick="{{ saveEdit }}" style="flex:2;text-align:center;padding:11px 0;background:#33ff66;color:#052b0f;font-size:12px;font-weight:700;cursor:pointer">[ ✓ บันทึก ]</div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- toast -->
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;background:#052b0f;border:1px solid #33ff66;color:#33ff66;font-family:'Kanit',sans-serif;font-size:12px;padding:9px 16px;box-shadow:0 0 18px rgba(51,255,102,.4);white-space:nowrap">{{ toast }}</div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:340,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  // ===== ตั้งค่าให้เป็นแอปจริง (ดูขั้นตอนใน README-setup.md) =====
+  static CONFIG = {
+    // ✅ วิธีที่แนะนำ (Sheet เป็นส่วนตัว, อ่านอย่างเดียว): วาง URL ของ Apps Script Web App ที่นี่
+    SHEET_API_URL: 'https://script.google.com/macros/s/AKfycbzt31HyaIPtgk-nSgN1cK5k4X72qoImDX_fl_oAhKikqtHPxQeCGWJfXT-lYXg2gAsIDg/exec',
+    // (ทางเลือกสำรอง) ดึงตรงจาก Sheet — ใช้เฉพาะกรณีตั้งแชร์ "ทุกคนที่มีลิงก์ดูได้" เท่านั้น
+    SHEET_ID: '1oOK4TJPGJWVFT008O1fejOUrfYLLgrn1-64sgdLlIxE',
+    LIFF_ID: '',         // วาง LIFF ID จาก LINE Developers Console
+  };
+
+  state = {
+    view: 'list',
+    query: '',
+    dataSource: 'demo',  // 'demo' | 'live'
+    loading: false,
+    filterHouse: 'all',
+    openDrop: null,
+    selId: null,
+    editing: false,
+    draft: {},
+    toast: '',
+    people: [
+      { id:1, initials:'สม', first:'สมชาย', last:'ใจดี', chaya:'ปญฺญาวโร', catIn:'ผบก.', catLek:'', tel:'081-234-5678', line:'@somchai_j', dob:'12/03/2545', ageRaw:'', province:'เชียงราย', work:'บมจ. ปตท.', position:'วิศวกร', updated:'28/06/2569' },
+      { id:2, initials:'วี', first:'วีรพงษ์', last:'ศรีสุข', chaya:'ธมฺมทีโป', catIn:'', catLek:'สจ.', tel:'082-345-6789', line:'@weera_s', dob:'08/07/2547', ageRaw:'', province:'น่าน', work:'ธ.กสิกรไทย', position:'เจ้าหน้าที่สินเชื่อ', updated:'15/05/2569' },
+      { id:3, initials:'อนุ', first:'อนุชา', last:'พรมมา', chaya:'จนฺทสาโร', catIn:'ดส.', catLek:'สร.', tel:'083-456-7890', line:'@anucha_p', dob:'22/11/2544', ageRaw:'', province:'พะเยา', work:'รพ.พะเยา', position:'พยาบาลวิชาชีพ', updated:'02/07/2569' },
+      { id:4, initials:'ธี', first:'ธีรภัทร', last:'คงเดช', chaya:'อคฺคธมฺโม', catIn:'', catLek:'นอ.', tel:'084-567-8901', line:'@teera_k', dob:'03/02/2548', ageRaw:'', province:'ลำปาง', work:'บจก. เซ็นทรัล', position:'ผู้จัดการฝ่ายขาย', updated:'10/04/2569' },
+      { id:5, initials:'กิ', first:'กิตติ', last:'แสงทอง', chaya:'ปภสฺสโร', catIn:'จล.', catLek:'', tel:'085-678-9012', line:'@kitti_s', dob:'19/09/2543', ageRaw:'', province:'แพร่', work:'ร.ร.แพร่ปัญญานุกูล', position:'ครู', updated:'20/06/2569' },
+      { id:6, initials:'ณั', first:'ณัฐวุฒิ', last:'บุญมี', chaya:'สุเมโธ', catIn:'', catLek:'สร.', tel:'086-789-0123', line:'@nattawut_b', dob:'27/05/2549', ageRaw:'', province:'เชียงใหม่', work:'ธุรกิจส่วนตัว', position:'เจ้าของกิจการ', updated:'01/07/2569' },
+      { id:7, initials:'ปร', first:'ประเสริฐ', last:'ทองคำ', chaya:'ชุตินฺธโร', catIn:'พท.', catLek:'', tel:'087-890-1234', line:'@prasert_t', dob:'14/01/2542', ageRaw:'', province:'เชียงราย', work:'สนง.เขตพื้นที่ฯ', position:'นักวิชาการ', updated:'18/03/2569' },
+      { id:8, initials:'สุ', first:'สุริยา', last:'มั่นคง', chaya:'ธีรปญฺโญ', catIn:'', catLek:'สจ.', tel:'088-901-2345', line:'@suriya_m', dob:'30/08/2548', ageRaw:'', province:'น่าน', work:'บจก. ทรู', position:'วิศวกรเครือข่าย', updated:'25/05/2569' },
+      { id:9, initials:'จิ', first:'จิรายุ', last:'เพชรงาม', chaya:'อภิวฑฺฒโน', catIn:'ผบก.', catLek:'', tel:'089-012-3456', line:'@jirayu_p', dob:'06/12/2546', ageRaw:'', province:'ลำพูน', work:'ราชการ', position:'ปลัดอำเภอ', updated:'30/06/2569' },
+    ],
+  };
+
+  componentDidMount(){
+    const C = Component.CONFIG;
+    // เริ่ม LINE LIFF ถ้าตั้งค่าไว้ (ทำให้รันในแอป LINE ได้)
+    if(C.LIFF_ID && window.liff){
+      window.liff.init({ liffId: C.LIFF_ID }).catch(() => {});
+    }
+    // ดึงข้อมูลสดจาก Google Sheet ถ้าตั้งค่าไว้
+    this._demo = this.state.people; // เก็บ demo ไว้ใช้กรณีต่อ Sheet ไม่ได้
+    if(C.SHEET_API_URL){ this.setState({ people: [], loading: true }); this.loadFromSheet(C.SHEET_API_URL); }
+    else if(C.SHEET_ID){ this.setState({ people: [], loading: true }); this.loadFromGviz(C.SHEET_ID); }
+  }
+
+  // ใช้ข้อมูลตัวอย่างเฉพาะเมื่อดึงจาก Sheet ไม่สำเร็จ
+  fallbackDemo(){
+    this.setState({ people: this._demo || [], dataSource: 'demo', loading: false });
+  }
+
+  // ดึงตรงจาก Google Sheet ผ่าน JSONP (ข้าม CORS) — Sheet ต้องแชร์แบบ "ทุกคนที่มีลิงก์ดูได้"
+  loadFromGviz(sheetId){
+    this.setState({ loading: true });
+    const cb = '__gviz_' + Math.random().toString(36).slice(2);
+    let s = null;
+    const cleanup = () => {
+      try { delete window[cb]; } catch(e) {}
+      if(s && s.parentNode) s.parentNode.removeChild(s);
+      clearTimeout(to);
+    };
+    const to = setTimeout(() => { this.setState({ loading: false }); cleanup(); }, 12000);
+    window[cb] = (json) => {
+      try {
+        let cols = (json.table.cols || []).map(c => String(c.label || '').trim());
+        let rows = json.table.rows || [];
+        if(cols.every(c => c === '') && rows.length){
+          cols = rows[0].c.map(cell => cell ? String(cell.v || '').trim() : '');
+          rows = rows.slice(1);
+        }
+        const objs = rows.map(r => {
+          const o = {};
+          (r.c || []).forEach((cell, i) => {
+            o[cols[i]] = cell ? (cell.f != null ? cell.f : cell.v) : '';
+          });
+          return o;
+        });
+        const people = objs.map((r, i) => this.normalize(r, i)).filter(Boolean);
+        if(people.length){ this.setState({ people, dataSource: 'live', loading: false }); }
+        else { this.fallbackDemo(); }
+      } catch(e){ this.fallbackDemo(); }
+      cleanup();
+    };
+    s = document.createElement('script');
+    s.src = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/gviz/tq?tqx=out:json;responseHandler:' + cb;
+    s.onerror = () => { this.fallbackDemo(); cleanup(); };
+    document.head.appendChild(s);
+  }
+
+  async loadFromSheet(url){
+    this.setState({ loading: true });
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      const rows = await res.json();
+      const list = (Array.isArray(rows) ? rows : (rows.data || []));
+      const people = list.map((r, i) => this.normalize(r, i)).filter(Boolean);
+      if(people.length){
+        this.setState({ people, dataSource: 'live', loading: false });
+      } else {
+        this.fallbackDemo();
+      }
+    } catch(e){
+      this.fallbackDemo();
+    }
+  }
+
+  // แปลงแถวจาก Sheet (คีย์เป็นชื่อคอลัมน์ภาษาไทย) เป็นรูปแบบภายในแอป
+  normalize(r, i){
+    const g = (keys) => {
+      for(const k of keys){
+        if(r[k] != null && String(r[k]).trim() !== '') return String(r[k]).trim();
+      }
+      return '';
+    };
+    const first = g(['ชื่อ','first']);
+    const last = g(['นามสกุล','last']);
+    if(!first && !last) return null;
+    const namePart = (first.split('.').pop() || first).trim();
+    return {
+      id: i + 1,
+      initials: (namePart || '?').slice(0, 2),
+      first, last,
+      chaya: g(['ฉายา']),
+      catLek: g(['คณะเด็กเล็ก']),
+      catIn: g(['คณะเด็กใน']),
+      tel: g(['เบอร์โทรศัพท์','เบอร์โทร','tel']),
+      line: g(['ID Line','IDLine','id line','line']),
+      dob: g(['วันเดือนปีเกิด (คศ)','วันเดือนปีเกิด','วันเกิด','dob']),
+      ageRaw: g(['อายุ','age']),
+      province: g(['จว.ที่อยู่','จังหวัด','province']),
+      work: g(['ทำงาน','work']),
+      position: g(['ตำแหน่ง','position']),
+      updated: g(['อัพเดตล่าสุด','อัปเดตล่าสุด','updated']) || '—',
+    };
+  }
+
+  showToast(msg){
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 1900);
+  }
+
+  ageFromDob(dob){
+    const parts = String(dob).split('/');
+    if(parts.length !== 3) return '';
+    const d = +parts[0], m = +parts[1], by = +parts[2] - 543; // พ.ศ. -> ค.ศ.
+    const birth = new Date(by, m-1, d);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const mm = now.getMonth() - birth.getMonth();
+    if(mm < 0 || (mm === 0 && now.getDate() < birth.getDate())) age--;
+    return age;
+  }
+
+  thaiDate(d){
+    const m = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return d.getDate() + ' ' + m[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+  }
+
+  matches(p, q){
+    if(!q) return true;
+    const s = (p.first + ' ' + p.last + ' ' + p.chaya + ' ' + (p.catIn||'') + ' ' + (p.catLek||'')).toLowerCase();
+    return s.includes(q.toLowerCase());
+  }
+
+  renderVals(){
+    const { people, query, filterHouse, openDrop, selId, editing, draft, toast, dataSource, loading } = this.state;
+    const q = query.trim();
+    const statusLabel = loading ? '◌ โหลด…' : (dataSource === 'live' ? '◉ LIVE' : '◉ DEMO');
+    const statusStyle = dataSource === 'live' ? 'color:#33ff66' : 'color:#1f9e3f';
+
+    const catStr = (p) => {
+      const parts = [];
+      if(p.catIn) parts.push('เด็กใน ' + p.catIn);
+      if(p.catLek) parts.push('เด็กเล็ก ' + p.catLek);
+      return parts.join(' · ');
+    };
+    const filtered = people
+      .filter(p => filterHouse === 'all' ? true : (p.catIn === filterHouse || p.catLek === filterHouse))
+      .filter(p => this.matches(p, q));
+
+    const inHouses = ['ผบก.','ดส.','จล.','พท.'];
+    const lekHouses = ['สจ.','นอ.','สร.'];
+    const chipActive = 'font-size:13px;padding:6px 10px;background:#33ff66;color:#052b0f;font-weight:600;cursor:pointer;white-space:nowrap';
+    const chipIdle = 'font-size:13px;padding:6px 10px;border:1px solid #1f9e3f;color:#33ff66;cursor:pointer;white-space:nowrap';
+    const inSel = inHouses.includes(filterHouse);
+    const lekSel = lekHouses.includes(filterHouse);
+    const panelHouses = (openDrop === 'in' ? inHouses : openDrop === 'lek' ? lekHouses : []).map(h => ({
+      label: h,
+      style: filterHouse === h
+        ? 'font-size:13px;padding:6px 10px;background:#33ff66;color:#052b0f;font-weight:600;cursor:pointer;white-space:nowrap'
+        : 'font-size:13px;padding:6px 10px;border:1px solid #1f9e3f;color:#33ff66;cursor:pointer;white-space:nowrap',
+      onClick: () => this.setState({ filterHouse: h, openDrop: null }),
+    }));
+
+    const pad = (n) => String(n).padStart(2,'0');
+    const results = filtered.map((p, i) => ({
+      num: pad(i+1),
+      initials: p.initials,
+      name: p.first + ' ' + p.last,
+      first: p.first,
+      last: p.last,
+      chaya: p.chaya,
+      sub: [p.chaya ? 'ฉายา ' + p.chaya : '', catStr(p)].filter(Boolean).join(' · '),
+      open: () => this.setState({ view:'detail', selId:p.id, editing:false }),
+    }));
+
+    const selRaw = people.find(p => p.id === selId) || null;
+    const selIdx = selRaw ? people.findIndex(p => p.id === selId) : -1;
+    const sel = selRaw ? {
+      rec: pad(selIdx+1) + '42'.slice(0,0) || pad(selIdx+1),
+      initials: selRaw.initials,
+      name: selRaw.first + ' ' + selRaw.last,
+      chaya: selRaw.chaya,
+      catFull: selRaw.catFull,
+      house: selRaw.house,
+      badge: catStr(selRaw) || '—',
+      first: selRaw.first,
+      last: selRaw.last,
+      lekVal: selRaw.catLek || '—',
+      inVal: selRaw.catIn || '—',
+      tel: selRaw.tel,
+      telHref: 'tel:' + String(selRaw.tel||'').replace(/[^0-9]/g,''),
+      line: selRaw.line,
+      dob: selRaw.dob,
+      age: (selRaw.ageRaw !== '' && selRaw.ageRaw != null) ? (selRaw.ageRaw + ' ปี') : (this.ageFromDob(selRaw.dob) + ' ปี'),
+      province: selRaw.province,
+      work: selRaw.work,
+      position: selRaw.position,
+      updated: selRaw.updated,
+    } : {};
+    if(selRaw){ sel.rec = String(selIdx+1).padStart(4,'0'); }
+
+    const mkSet = (k) => (e) => this.setState(s => ({ draft: { ...s.draft, [k]: e.target.value } }));
+
+    return {
+      statusLabel,
+      statusStyle,
+      total: people.length,
+      count: filtered.length,
+      isList: this.state.view === 'list',
+      isDetail: this.state.view === 'detail',
+      query,
+      hasQuery: q.length > 0,
+      setQuery: (e) => this.setState({ query: e.target.value }),
+      clearQuery: () => this.setState({ query: '' }),
+      allStyle: filterHouse === 'all' ? chipActive : chipIdle,
+      inStyle: (inSel || openDrop === 'in') ? chipActive : chipIdle,
+      lekStyle: (lekSel || openDrop === 'lek') ? chipActive : chipIdle,
+      inLabel: (inSel ? 'เด็กใน · ' + filterHouse : 'คณะเด็กใน') + ' ▾',
+      lekLabel: (lekSel ? 'เด็กเล็ก · ' + filterHouse : 'คณะเด็กเล็ก') + ' ▾',
+      selectAll: () => this.setState({ filterHouse: 'all', openDrop: null }),
+      toggleIn: () => this.setState(s => ({ openDrop: s.openDrop === 'in' ? null : 'in' })),
+      toggleLek: () => this.setState(s => ({ openDrop: s.openDrop === 'lek' ? null : 'lek' })),
+      panelOpen: openDrop !== null,
+      panelHouses,
+      results,
+      isLoading: loading && people.length === 0,
+      hasResults: filtered.length > 0,
+      noResults: !loading && people.length > 0 && filtered.length === 0,
+      sel,
+      back: () => this.setState({ view:'list', editing:false }),
+      chat: () => {
+        const id = selRaw ? selRaw.line : '';
+        try {
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(id);
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = id; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+          }
+        } catch(e){}
+        this.showToast('บันทึก ID Line แล้ว สามารถนำไปวางเพิ่มเพื่อนได้');
+      },
+      startEdit: () => this.setState({ editing:true, draft:{ tel:selRaw.tel, line:selRaw.line, province:selRaw.province, work:selRaw.work, position:selRaw.position } }),
+      notEditing: !editing,
+      editing,
+      draft,
+      setTel: mkSet('tel'),
+      setLine: mkSet('line'),
+      setProvince: mkSet('province'),
+      setWork: mkSet('work'),
+      setPosition: mkSet('position'),
+      cancelEdit: () => this.setState({ editing:false }),
+      saveEdit: () => {
+        this.setState(s => ({
+          editing:false,
+          people: s.people.map(p => p.id === s.selId ? { ...p, ...s.draft, updated: this.thaiDate(new Date()) } : p),
+        }));
+        this.showToast('✓ บันทึกข้อมูลแล้ว');
+      },
+      toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
