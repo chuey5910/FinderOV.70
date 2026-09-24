@@ -149,24 +149,12 @@ function replyFinder(replyToken) {
       }
     }
   };
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + LINE_TOKEN },
-    payload: JSON.stringify({ replyToken: replyToken, messages: [flex] }),
-    muteHttpExceptions: true
-  });
+  lineApi('message/reply', { replyToken: replyToken, messages: [flex] });
 }
 
 // ตอบกลับเป็นข้อความธรรมดา
 function replyText(replyToken, msg) {
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/reply', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + LINE_TOKEN },
-    payload: JSON.stringify({ replyToken: replyToken, messages: [{ type: 'text', text: msg }] }),
-    muteHttpExceptions: true
-  });
+  lineApi('message/reply', { replyToken: replyToken, messages: [{ type: 'text', text: msg }] });
 }
 
 // ====== 3) แจ้งเตือนวันเกิดอัตโนมัติ ======
@@ -237,11 +225,34 @@ function getGroupId() {
 function pushToGroup(msg) {
   var gid = getGroupId();
   if (!gid) { Logger.log('ยังไม่มี Group ID — ให้พิมพ์อะไรก็ได้ในกลุ่ม 1 ครั้ง'); return; }
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+  lineApi('message/push', { to: gid, messages: [{ type: 'text', text: msg }] });
+}
+
+// เรียก LINE Messaging API — ถ้าไม่สำเร็จจะบันทึก error ไว้ใน Executions (การเรียกใช้)
+function lineApi(path, body) {
+  var res = UrlFetchApp.fetch('https://api.line.me/v2/bot/' + path, {
     method: 'post',
     contentType: 'application/json',
     headers: { 'Authorization': 'Bearer ' + LINE_TOKEN },
-    payload: JSON.stringify({ to: gid, messages: [{ type: 'text', text: msg }] }),
+    payload: JSON.stringify(body),
     muteHttpExceptions: true
   });
+  if (res.getResponseCode() !== 200) {
+    console.error('LINE ' + path + ' ' + res.getResponseCode() + ': ' + res.getContentText());
+  }
+  return res;
+}
+
+// ====== ตรวจระบบ: เลือกฟังก์ชันนี้ด้านบนแล้วกด "เรียกใช้" (Run) ======
+function testToken() {
+  var res = UrlFetchApp.fetch('https://api.line.me/v2/bot/info', {
+    headers: { 'Authorization': 'Bearer ' + LINE_TOKEN },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() === 200) {
+    Logger.log('✅ token ใช้ได้ — บอท: ' + JSON.parse(res.getContentText()).displayName);
+  } else {
+    Logger.log('❌ token ใช้ไม่ได้ (' + res.getResponseCode() + ') — ไปคัดลอก Channel access token ใหม่ใน LINE Developers');
+  }
+  Logger.log('กลุ่มหลัก (GROUP_ID): ' + (getGroupId() || '— ยังไม่มี: พิมพ์อะไรก็ได้ในกลุ่ม 1 ครั้ง'));
 }
