@@ -107,7 +107,12 @@ function doPost(e) {
       // ถ้ามีคนพิมพ์ข้อความที่มีคำว่า "ค้นหา"
       if (ev.type === 'message' && ev.message && ev.message.type === 'text') {
         var text = String(ev.message.text || '').trim();
-        if (text.indexOf('ค้นหา') !== -1) {
+        var area = parseAreaCommand(text);
+        // "ใครอยู่ เชียงใหม่" → รายชื่อเพื่อนในจังหวัดนั้น
+        if (area !== null) {
+          replyArea(ev, area);
+        }
+        else if (text.indexOf('ค้นหา') !== -1) {
           replyFinder(ev.replyToken);
         }
         // พิมพ์ "ไอดีกลุ่ม" เพื่อดู/ยืนยัน Group ID (ไม่จำเป็นก็ได้ — ระบบบันทึกให้เองแล้ว)
@@ -137,7 +142,8 @@ function replyFinder(replyToken) {
         type: 'box', layout: 'vertical', spacing: 'sm',
         contents: [
           { type: 'text', text: 'FINDER', weight: 'bold', size: 'xxl', color: '#1f9e3f' },
-          { type: 'text', text: 'ระบบค้นหาข้อมูลบุคคล', size: 'sm', color: '#888888', wrap: true }
+          { type: 'text', text: 'ระบบค้นหาข้อมูลบุคคล', size: 'sm', color: '#888888', wrap: true },
+          { type: 'text', text: 'หาเพื่อนใกล้ตัว: พิมพ์ "ใครอยู่ ชื่อจังหวัด"', size: 'xs', color: '#aaaaaa', wrap: true, margin: 'md' }
         ]
       },
       footer: {
@@ -520,4 +526,76 @@ function transferApproved() {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ====== 5) หาเพื่อนตามจังหวัด: "ใครอยู่ เชียงใหม่" / "หาเพื่อน กทม" ======
+var BKK_ALIASES = ['กรุงเทพ', 'กทม', 'bangkok', 'bkk'];
+var AREA_MAX_LINES = 40;
+
+// คืนชื่อพื้นที่ที่พิมพ์ต่อท้าย ('' ถ้าไม่ได้พิมพ์) หรือ null ถ้าไม่ใช่คำสั่งนี้
+function parseAreaCommand(text) {
+  var m = String(text || '').trim().match(/^(ใครอยู่|หาเพื่อน)(?:ที่|แถว)?\s*(.*)$/);
+  return m ? m[2].trim() : null;
+}
+
+function areaNorm(s) {
+  return String(s || '').toLowerCase().replace(/จังหวัด|จ\./g, '').replace(/[\s.ฯ\-]/g, '');
+}
+
+function areaMatch(field, q) {
+  var f = areaNorm(field), n = areaNorm(q);
+  if (!f || n.length < 2) return false;
+  var isBkk = function (x) { return BKK_ALIASES.some(function (a) { return x.indexOf(a) !== -1; }); };
+  if (isBkk(n)) return isBkk(f);
+  return f.indexOf(n) !== -1;
+}
+
+// ข้อมูลเฉพาะในกลุ่มหลัก หรือแชต 1:1 กับบอทของคนที่เป็นสมาชิกกลุ่ม
+function canUseData(src) {
+  if (!src) return false;
+  if (src.type === 'group') return !!src.groupId && src.groupId === getGroupId();
+  if (src.type === 'user') return !!src.userId && isMember(src.userId);
+  return false;
+}
+
+function findByArea(q) {
+  var rows = getDataSheet().getDataRange().getValues();
+  var h = rows.shift().map(function (x) { return String(x).trim(); });
+  var col = function (names) {
+    for (var i = 0; i < names.length; i++) { var k = h.indexOf(names[i]); if (k !== -1) return k; }
+    return -1;
+  };
+  var iArea = col(['จว.ที่อยู่', 'จังหวัด', 'ที่อยู่']);
+  if (iArea === -1) return [];
+  var iFirst = col(['ชื่อ']), iLast = col(['นามสกุล']), iChaya = col(['ฉายา']), iWork = col(['ทำงาน']);
+  var val = function (r, i) { return i === -1 ? '' : String(r[i] == null ? '' : r[i]).trim(); };
+  return rows
+    .filter(function (r) { return (val(r, iFirst) || val(r, iLast)) && areaMatch(r[iArea], q); })
+    .map(function (r) {
+      return { name: (val(r, iFirst) + ' ' + val(r, iLast)).trim(), chaya: val(r, iChaya),
+               work: val(r, iWork), area: val(r, iArea) };
+    })
+    .sort(function (a, b) { return a.name.localeCompare(b.name, 'th'); });
+}
+
+function replyArea(ev, q) {
+  if (!canUseData(ev.source)) { replyText(ev.replyToken, 'คำสั่งนี้ใช้ได้เฉพาะในกลุ่มรุ่น'); return; }
+  if (areaNorm(q).length < 2) {
+    replyText(ev.replyToken, 'พิมพ์ชื่อจังหวัดต่อท้าย เช่น\nใครอยู่ เชียงใหม่\nใครอยู่ กทม');
+    return;
+  }
+  var list = findByArea(q);
+  var link = APP_URL + '?q=' + encodeURIComponent(q);
+  if (!list.length) {
+    replyText(ev.replyToken, '📍 ไม่พบเพื่อนที่อยู่ "' + q + '"\nลองพิมพ์ชื่อจังหวัดแบบอื่น เช่น ชื่อย่อ หรือชื่อเมือง');
+    return;
+  }
+  var cut = function (s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+  var lines = list.slice(0, AREA_MAX_LINES).map(function (p) {
+    return '• ' + p.name + (p.chaya ? ' (' + p.chaya + ')' : '') + (p.work ? ' · ' + cut(p.work, 30) : '');
+  });
+  if (list.length > AREA_MAX_LINES) lines.push('…และอีก ' + (list.length - AREA_MAX_LINES) + ' คน');
+  replyText(ev.replyToken,
+    '📍 เพื่อนที่อยู่ "' + q + '" — ' + list.length + ' คน\n' + lines.join('\n') +
+    '\n\n📞 ดูเบอร์โทร / ID Line:\n' + link);
 }
