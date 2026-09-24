@@ -412,18 +412,41 @@ class Component extends DCLogic {
     return d.getDate() + ' ' + m[d.getMonth()] + ' ' + (d.getFullYear() + 543);
   }
 
-  // ค้นจากชื่อ / ฉายา / บ้าน / จังหวัด / ที่ทำงาน / ตำแหน่ง — "กทม" = "กรุงเทพฯ"
+  // จังหวัด:ชื่อเล่น — ชุดเดียวกับ PROVINCES_RAW ใน line-bot.gs
+  static PROVINCES = (
+    'กรุงเทพมหานคร:กรุงเทพ,กทม,bangkok,bkk|กระบี่|กาญจนบุรี:กาญจน์|กาฬสินธุ์|กำแพงเพชร|ขอนแก่น|จันทบุรี|' +
+    'ฉะเชิงเทรา:แปดริ้ว|ชลบุรี:พัทยา,ศรีราชา,บางแสน|ชัยนาท|ชัยภูมิ|ชุมพร|เชียงราย|เชียงใหม่|ตรัง|ตราด|ตาก:แม่สอด|' +
+    'นครนายก|นครปฐม|นครพนม|นครราชสีมา:โคราช|นครศรีธรรมราช:นครศรี|นครสวรรค์|นนทบุรี:นนท์|นราธิวาส|น่าน|บึงกาฬ|' +
+    'บุรีรัมย์|ปทุมธานี:ปทุม,รังสิต|ประจวบคีรีขันธ์:ประจวบ,หัวหิน|ปราจีนบุรี|ปัตตานี|พระนครศรีอยุธยา:อยุธยา|พะเยา|' +
+    'พังงา|พัทลุง|พิจิตร|พิษณุโลก|เพชรบุรี:ชะอำ|เพชรบูรณ์|แพร่|ภูเก็ต|มหาสารคาม|มุกดาหาร|แม่ฮ่องสอน:ปาย|ยโสธร|' +
+    'ยะลา:เบตง|ร้อยเอ็ด|ระนอง|ระยอง|ราชบุรี|ลพบุรี|ลำปาง|ลำพูน|เลย|ศรีสะเกษ|สกลนคร|สงขลา:หาดใหญ่|สตูล|' +
+    'สมุทรปราการ:ปากน้ำ,บางพลี|สมุทรสงคราม:แม่กลอง|สมุทรสาคร:มหาชัย|สระแก้ว|สระบุรี|สิงห์บุรี|สุโขทัย|สุพรรณบุรี|' +
+    'สุราษฎร์ธานี:สุราษฎร์,สุราษ,สมุย|สุรินทร์|หนองคาย|หนองบัวลำภู|อ่างทอง|อำนาจเจริญ|อุดรธานี:อุดร|อุตรดิตถ์|' +
+    'อุทัยธานี|อุบลราชธานี:อุบล'
+  ).split('|').map(e => { const p = e.split(':'); return [p[0]].concat(p[1] ? p[1].split(',') : []); });
+
+  normArea(x){ return String(x || '').toLowerCase().replace(/จังหวัด|จ\./g, '').replace(/[\s.ฯ\-]/g, ''); }
+
+  // "โคราช" → ['นครราชสีมา','โคราช'] (ตรงเป๊ะ หรือขึ้นต้นเหมือนแบบไม่กำกวม) ไม่ใช่จังหวัด → null
+  provinceTerms(nq){
+    const all = Component.PROVINCES.map(ts => ts.map(t => this.normArea(t)));
+    let hit = all.filter(ts => ts.includes(nq));
+    if(hit.length !== 1 && nq.length >= 3) hit = all.filter(ts => ts.some(t => t.startsWith(nq)));
+    return hit.length === 1 ? hit[0] : null;
+  }
+
+  // ค้นจากชื่อ / ฉายา / บ้าน / จังหวัด / ที่ทำงาน / ตำแหน่ง — "กทม" = "กรุงเทพฯ", "โคราช" = "นครราชสีมา"
   matches(p, q){
     if(!q) return true;
-    const norm = (x) => String(x || '').toLowerCase().replace(/จังหวัด|จ\./g, '').replace(/[\s.ฯ\-]/g, '');
+    const norm = (x) => this.normArea(x);
     const nq = norm(q);
     if(!nq) return true;
-    const bkk = ['กรุงเทพ', 'กทม', 'bangkok', 'bkk'];
-    const isBkk = (x) => bkk.some(a => x.indexOf(a) !== -1);
-    if(isBkk(nq)) return isBkk(norm(p.province));
+    const terms = nq.length >= 2 ? this.provinceTerms(nq) : null;
+    if(terms && terms.some(t => norm(p.province).includes(t))) return true;
     const s = [p.first + p.last, p.chaya, p.catIn, p.catLek, p.province, p.work, p.position].map(norm).join('|');
     return s.includes(nq);
   }
+
 
   renderVals(){
     const { people, query, filterHouse, openDrop, selId, editing, draft, toast, dataSource, loading, authMsg } = this.state;

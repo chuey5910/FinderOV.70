@@ -106,19 +106,14 @@ function doPost(e) {
     (body.events || []).forEach(function (ev) {
       // บันทึก groupId อัตโนมัติ (ใช้ตอนแจ้งเตือนวันเกิด และตรวจสิทธิ์สมาชิก)
       if (ev.source && ev.source.groupId) saveGroupId(ev.source.groupId);
-      // ถ้ามีคนพิมพ์ข้อความที่มีคำว่า "ค้นหา"
+      // คำสั่งบอทต้องขึ้นต้นด้วย # เท่านั้น — คุยกันปกติบอทจะไม่ตอบ
       if (ev.type === 'message' && ev.message && ev.message.type === 'text') {
-        var text = String(ev.message.text || '').trim();
-        var area = parseAreaCommand(text);
-        // "ใครอยู่ เชียงใหม่" → รายชื่อเพื่อนในจังหวัดนั้น
-        if (area !== null) {
-          replyArea(ev, area);
-        }
-        else if (text.indexOf('ค้นหา') !== -1) {
-          replyFinder(ev.replyToken);
-        }
-        // พิมพ์ "ไอดีกลุ่ม" เพื่อดู/ยืนยัน Group ID (ไม่จำเป็นก็ได้ — ระบบบันทึกให้เองแล้ว)
-        else if (text.indexOf('ไอดีกลุ่ม') !== -1) {
+        var c = parseCommand(ev.message.text);
+        if (!c) return;
+        if (c.cmd === 'ใครอยู่') replyArea(ev, c.arg);
+        else if (c.cmd === 'ค้นหา') replyFinder(ev.replyToken);
+        else if (c.cmd === 'ช่วยเหลือ') replyText(ev.replyToken, HELP_TEXT);
+        else if (c.cmd === 'ไอดีกลุ่ม') {
           var gid = (ev.source && ev.source.groupId) ? ev.source.groupId : '';
           var msg = !gid ? 'คำสั่งนี้ใช้ในกลุ่มเท่านั้น'
             : (gid === getGroupId() ? '✅ กลุ่มนี้คือกลุ่มหลักของระบบ\nGroup ID:\n' + gid
@@ -145,7 +140,7 @@ function replyFinder(replyToken) {
         contents: [
           { type: 'text', text: 'FINDER', weight: 'bold', size: 'xxl', color: '#1f9e3f' },
           { type: 'text', text: 'ระบบค้นหาข้อมูลบุคคล', size: 'sm', color: '#888888', wrap: true },
-          { type: 'text', text: 'หาเพื่อนใกล้ตัว: พิมพ์ "ใครอยู่ ชื่อจังหวัด"', size: 'xs', color: '#aaaaaa', wrap: true, margin: 'md' }
+          { type: 'text', text: 'หาเพื่อนใกล้ตัว: พิมพ์ #ใครอยู่ ชื่อจังหวัด\nดูคำสั่งทั้งหมด: #ช่วยเหลือ', size: 'xs', color: '#aaaaaa', wrap: true, margin: 'md' }
         ]
       },
       footer: {
@@ -532,25 +527,108 @@ function transferApproved() {
   }
 }
 
-// ====== 5) หาเพื่อนตามจังหวัด: "ใครอยู่ เชียงใหม่" / "หาเพื่อน กทม" ======
-var BKK_ALIASES = ['กรุงเทพ', 'กทม', 'bangkok', 'bkk'];
+// ====== 5) คำสั่งบอท (ขึ้นต้นด้วย #) ======
+var COMMANDS = {                       // คำที่พิมพ์ได้ → คำสั่ง
+  'ใครอยู่': 'ใครอยู่', 'หาเพื่อน': 'ใครอยู่',
+  'ค้นหา': 'ค้นหา',
+  'ช่วยเหลือ': 'ช่วยเหลือ', 'วิธีใช้': 'ช่วยเหลือ', 'help': 'ช่วยเหลือ',
+  'ไอดีกลุ่ม': 'ไอดีกลุ่ม'
+};
 
-// คืนชื่อพื้นที่ที่พิมพ์ต่อท้าย ('' ถ้าไม่ได้พิมพ์) หรือ null ถ้าไม่ใช่คำสั่งนี้
-function parseAreaCommand(text) {
-  var m = String(text || '').trim().match(/^(ใครอยู่|หาเพื่อน)(?:ที่|แถว)?\s*(.*)$/);
-  return m ? m[2].trim() : null;
+var HELP_TEXT =
+  '🤖 คำสั่งบอท FINDER\n' +
+  '(พิมพ์ # นำหน้าเสมอ — คุยกันปกติบอทจะไม่ตอบ)\n\n' +
+  '🔍 #ค้นหา\n' +
+  'เปิดเว็บค้นหาข้อมูลเพื่อน ค้นได้จากชื่อ ฉายา บ้าน จังหวัด ที่ทำงาน\n\n' +
+  '📍 #ใครอยู่ ชื่อจังหวัด\n' +
+  'ดูรายชื่อเพื่อนในจังหวัดนั้น พร้อมเบอร์ที่กดโทรได้เลย\n' +
+  'เช่น  #ใครอยู่ เชียงใหม่\n' +
+  '        #ใครอยู่ กทม\n' +
+  '        #ใครอยู่ โคราช\n' +
+  'พิมพ์ชื่อย่อ ชื่อเมือง หรือสะกดผิดเล็กน้อยได้\n\n' +
+  '❓ #ช่วยเหลือ\n' +
+  'แสดงคำสั่งทั้งหมด\n\n' +
+  '🎂 ทุกเช้าบอทแจ้งวันเกิดเพื่อนในกลุ่มให้อัตโนมัติ';
+
+// "#ใครอยู่ เชียงใหม่" / "# ใครอยู่เชียงใหม่" → { cmd: 'ใครอยู่', arg: 'เชียงใหม่' } — ไม่มี # หรือไม่รู้จัก → null
+function parseCommand(text) {
+  var m = String(text || '').trim().match(/^[#＃]\s*([\s\S]*)$/);
+  if (!m) return null;
+  var body = m[1].trim(), lower = body.toLowerCase();
+  var names = Object.keys(COMMANDS).sort(function (a, b) { return b.length - a.length; });
+  for (var i = 0; i < names.length; i++) {
+    if (lower.indexOf(names[i]) === 0) {
+      var arg = body.slice(names[i].length).trim().replace(/^(ที่|แถว)\s*/, '');
+      return { cmd: COMMANDS[names[i]], arg: arg };
+    }
+  }
+  return null;
 }
+
+// ====== 6) จังหวัด: ชื่อเต็ม:ชื่อเล่น/เมืองที่คนนิยมพิมพ์ ======
+var PROVINCES_RAW =
+  'กรุงเทพมหานคร:กรุงเทพ,กทม,bangkok,bkk|กระบี่|กาญจนบุรี:กาญจน์|กาฬสินธุ์|กำแพงเพชร|ขอนแก่น|จันทบุรี|' +
+  'ฉะเชิงเทรา:แปดริ้ว|ชลบุรี:พัทยา,ศรีราชา,บางแสน|ชัยนาท|ชัยภูมิ|ชุมพร|เชียงราย|เชียงใหม่|ตรัง|ตราด|ตาก:แม่สอด|' +
+  'นครนายก|นครปฐม|นครพนม|นครราชสีมา:โคราช|นครศรีธรรมราช:นครศรี|นครสวรรค์|นนทบุรี:นนท์|นราธิวาส|น่าน|บึงกาฬ|' +
+  'บุรีรัมย์|ปทุมธานี:ปทุม,รังสิต|ประจวบคีรีขันธ์:ประจวบ,หัวหิน|ปราจีนบุรี|ปัตตานี|พระนครศรีอยุธยา:อยุธยา|พะเยา|' +
+  'พังงา|พัทลุง|พิจิตร|พิษณุโลก|เพชรบุรี:ชะอำ|เพชรบูรณ์|แพร่|ภูเก็ต|มหาสารคาม|มุกดาหาร|แม่ฮ่องสอน:ปาย|ยโสธร|' +
+  'ยะลา:เบตง|ร้อยเอ็ด|ระนอง|ระยอง|ราชบุรี|ลพบุรี|ลำปาง|ลำพูน|เลย|ศรีสะเกษ|สกลนคร|สงขลา:หาดใหญ่|สตูล|' +
+  'สมุทรปราการ:ปากน้ำ,บางพลี|สมุทรสงคราม:แม่กลอง|สมุทรสาคร:มหาชัย|สระแก้ว|สระบุรี|สิงห์บุรี|สุโขทัย|สุพรรณบุรี|' +
+  'สุราษฎร์ธานี:สุราษฎร์,สุราษ,สมุย|สุรินทร์|หนองคาย|หนองบัวลำภู|อ่างทอง|อำนาจเจริญ|อุดรธานี:อุดร|อุตรดิตถ์|' +
+  'อุทัยธานี|อุบลราชธานี:อุบล';
+
+var PROVINCES = PROVINCES_RAW.split('|').map(function (e) {
+  var p = e.split(':');
+  return { name: p[0], terms: [p[0]].concat(p[1] ? p[1].split(',') : []).map(areaNorm) };
+});
 
 function areaNorm(s) {
   return String(s || '').toLowerCase().replace(/จังหวัด|จ\./g, '').replace(/[\s.ฯ\-]/g, '');
 }
 
+function editDistance(a, b) {
+  var prev = [], cur, i, j;
+  for (j = 0; j <= b.length; j++) prev[j] = j;
+  for (i = 1; i <= a.length; i++) {
+    cur = [i];
+    for (j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+// หาจังหวัดจากคำที่พิมพ์: ตรงเป๊ะ → ขึ้นต้นเหมือน (ต้องไม่กำกวม) → สะกดใกล้เคียง
+function resolveProvince(q) {
+  var n = areaNorm(q);
+  if (n.length < 2) return null;
+  var hit = PROVINCES.filter(function (p) { return p.terms.indexOf(n) !== -1; });
+  if (hit.length === 1) return hit[0];
+  if (n.length >= 3) {
+    hit = PROVINCES.filter(function (p) { return p.terms.some(function (t) { return t.indexOf(n) === 0; }); });
+    if (hit.length === 1) return hit[0];
+    if (hit.length > 1) return null;
+  }
+  var maxD = n.length <= 4 ? 1 : 2, best = null, bestD = 99, tie = false;
+  PROVINCES.forEach(function (p) {
+    var d = Math.min.apply(null, p.terms.map(function (t) { return editDistance(n, t); }));
+    if (d < bestD) { bestD = d; best = p; tie = false; }
+    else if (d === bestD && p !== best) tie = true;
+  });
+  return (bestD <= maxD && !tie) ? best : null;
+}
+
+// คำที่ใช้ค้นในคอลัมน์ที่อยู่: จังหวัดที่รู้จัก → ชื่อเต็ม + ชื่อเล่นทั้งหมด, ไม่รู้จัก → คำที่พิมพ์ตรง ๆ
+function areaQuery(q) {
+  var p = resolveProvince(q);
+  return p ? { label: p.name, terms: p.terms } : { label: q, terms: [areaNorm(q)] };
+}
+
 function areaMatch(field, q) {
-  var f = areaNorm(field), n = areaNorm(q);
-  if (!f || n.length < 2) return false;
-  var isBkk = function (x) { return BKK_ALIASES.some(function (a) { return x.indexOf(a) !== -1; }); };
-  if (isBkk(n)) return isBkk(f);
-  return f.indexOf(n) !== -1;
+  var f = areaNorm(field);
+  var terms = typeof q === 'string' ? areaQuery(q).terms : q;
+  return !!f && terms.some(function (t) { return t.length >= 2 && f.indexOf(t) !== -1; });
 }
 
 // ข้อมูลเฉพาะในกลุ่มหลัก หรือแชต 1:1 กับบอทของคนที่เป็นสมาชิกกลุ่ม
@@ -562,6 +640,7 @@ function canUseData(src) {
 }
 
 function findByArea(q) {
+  var terms = areaQuery(q).terms;
   var rows = getDataSheet().getDataRange().getValues();
   var h = rows.shift().map(function (x) { return String(x).trim(); });
   var col = function (names) {
@@ -578,7 +657,7 @@ function findByArea(q) {
       return { name: (val(r, iFirst) + ' ' + val(r, iLast)).trim(), chaya: val(r, iChaya),
                tel: val(r, iTel), area: r[iArea], emoji: PERSON_EMOJIS[i % PERSON_EMOJIS.length] };
     })
-    .filter(function (p) { return p.name && areaMatch(p.area, q); })
+    .filter(function (p) { return p.name && areaMatch(p.area, terms); })
     .sort(function (a, b) { return a.name.localeCompare(b.name, 'th'); });
 }
 
@@ -656,15 +735,18 @@ function areaText(q, list, link) {
 function replyArea(ev, q) {
   if (!canUseData(ev.source)) { replyText(ev.replyToken, 'คำสั่งนี้ใช้ได้เฉพาะในกลุ่มรุ่น'); return; }
   if (areaNorm(q).length < 2) {
-    replyText(ev.replyToken, 'พิมพ์ชื่อจังหวัดต่อท้าย เช่น\nใครอยู่ เชียงใหม่\nใครอยู่ กทม');
+    replyText(ev.replyToken, 'พิมพ์ชื่อจังหวัดต่อท้าย เช่น\n#ใครอยู่ เชียงใหม่\n#ใครอยู่ กทม');
     return;
   }
+  var label = areaQuery(q).label;            // "โคราช" → "นครราชสีมา", "เชียงใม่" → "เชียงใหม่"
   var list = findByArea(q);
-  var link = APP_URL + '?q=' + encodeURIComponent(q);
+  var link = APP_URL + '?q=' + encodeURIComponent(label);
   if (!list.length) {
-    replyText(ev.replyToken, '📍 ไม่พบเพื่อนที่อยู่ "' + q + '"\nลองพิมพ์ชื่อจังหวัดแบบอื่น เช่น ชื่อย่อ หรือชื่อเมือง');
+    replyText(ev.replyToken, '📍 ไม่พบเพื่อนที่อยู่ "' + label + '"' +
+      (label !== q ? ' (จากที่พิมพ์ "' + q + '")' : '') + '\nลองพิมพ์ชื่อจังหวัดแบบอื่น เช่น ชื่อย่อ หรือชื่อเมือง');
     return;
   }
+  q = label;
   var res = lineApi('message/reply', { replyToken: ev.replyToken, messages: [areaCards(q, list, link)] });
   if (res.getResponseCode() !== 200) replyText(ev.replyToken, areaText(q, list, link));
 }
