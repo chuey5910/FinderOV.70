@@ -35,7 +35,8 @@
 | `source/support.js` | runtime ที่ซอร์สต้องใช้ตอนเปิดแบบไม่ bundle |
 | `source/uploads/ov70_crop.png` | โลโก้หัวแอป (ตัดขอบดำแล้ว) |
 | `source/uploads/wallpaperiphone.PNG` | ลายน้ำกลางจอ |
-| `line-bot.gs` | **โค้ด Apps Script ตัวปัจจุบัน** (doGet + doPost + แจ้งเตือนวันเกิด) |
+| `line-bot.gs` | **โค้ด Apps Script ตัวปัจจุบัน** (doGet + ตรวจสิทธิ์ LIFF + doPost + แจ้งเตือนวันเกิด) |
+| `tools/build_bundle.py` | สร้าง `index.html` ใหม่จากซอร์ส (`python3 tools/build_bundle.py`) |
 | `README-setup.md` | คู่มือตั้งค่า Sheet / Apps Script แบบละเอียด |
 
 > `sheet-api.gs` เก่าไม่ได้ใส่มา — `line-bot.gs` มี `doGet` ตัวเดียวกันอยู่แล้ว
@@ -77,7 +78,7 @@ var GROUP_ID   = '';                                           // ว่าง�
 ## 5. ฟีเจอร์
 
 **เว็บแอป**
-- ตอนเปิดขึ้น "กำลังโหลดข้อมูล…" → ข้อมูลจริง + ป้าย `◉ LIVE` (ใช้ demo เฉพาะตอนต่อ Sheet ไม่ได้)
+- ตอนเปิด login LINE (LIFF) → "กำลังโหลดข้อมูล…" → ข้อมูลจริง + ป้าย `◉ LIVE` · ไม่มีสิทธิ์ → `◉ LOCKED` + ACCESS DENIED
 - ค้นหาจาก ชื่อ / นามสกุล / ฉายา / บ้าน
 - กรอง: ทั้งหมด · คณะเด็กใน ▾ (ผบก./ดส./จล./พท.) · คณะเด็กเล็ก ▾ (สจ./นอ./สร.)
 - ผลลัพธ์ 2 บรรทัด: ชื่อ-นามสกุล / ฉายา
@@ -130,9 +131,39 @@ server {
 ---
 
 ## 7. ความปลอดภัย
-- `index.html` ไม่มี secret — มีแค่ URL `/exec` (อ่านอย่างเดียว)
+- `index.html` ไม่มี secret — มีแค่ URL `/exec` และ LIFF ID (เปิดเผยได้)
 - `LINE_TOKEN` อยู่ใน Apps Script เท่านั้น — ถ้าหลุดให้ Issue ใหม่
-- ข้อมูลบุคคลเปิดดูได้โดยทุกคนที่มี URL `/exec` หรือ URL เว็บ — ถ้าต้องการจำกัดสิทธิ์ ให้เพิ่ม LIFF login + ตรวจ userId ฝั่ง backend
+- **จำกัดสิทธิ์ด้วย LIFF + สมาชิกกลุ่ม**: `doGet` ส่งข้อมูลเฉพาะคนที่ login LINE และเป็นสมาชิกกลุ่มหลัก (ดูหัวข้อ 7.1)
+- กลุ่มหลักถูกล็อกไว้ที่กลุ่มแรกที่บอทบันทึก — เชิญบอทไปกลุ่มอื่นไม่ได้สิทธิ์เพิ่ม
+- Google Sheet ต้อง **ไม่** แชร์แบบ "ทุกคนที่มีลิงก์" (ไม่งั้นข้ามการตรวจสิทธิ์ได้)
+
+### 7.1 ตั้งค่า LIFF login (ทำครั้งเดียว)
+
+**ลำดับสำคัญ** — เว็บก่อน แล้วค่อย Apps Script (เว็บใหม่ใช้กับ Apps Script เก่าได้ ไม่มีช่วงล่ม)
+เว็บที่ `LIFF_ID` ว่างจะดึงข้อมูลแบบเดิม — การตรวจสิทธิ์เริ่มทำงานเมื่อ deploy `line-bot.gs` ตัวใหม่ (ข้อ 3)
+
+1. **สร้าง LIFF** — [LINE Developers Console](https://developers.line.biz/console/) → เลือก **Provider เดียวกับบอท** (สำคัญ: userId แยกตาม Provider)
+   → Create channel → **LINE Login** → แท็บ LIFF → Add
+   - Size: **Full** · Endpoint URL: `https://chuey5910.github.io/FinderOV.70/`
+   - Scopes: ติ๊ก **openid** (และ profile)
+   - คัดลอก **LIFF ID** (เช่น `2001234567-AbCdEfGh`)
+   - ตั้ง channel เป็น **Published** (ถ้าเป็น Developing จะ login ได้แค่ admin ของ channel)
+2. **เว็บ** — ใส่ `LIFF_ID` ใน `source/People Finder App.dc.html` (`static CONFIG`) แล้วรัน
+   `python3 tools/build_bundle.py` → commit `index.html` → merge เข้า `main`
+3. **Apps Script** — วางโค้ด `line-bot.gs` ใหม่ ใส่ `LINE_TOKEN` (ตัวเดิม) และ `LIFF_ID`
+   → Deploy → **Manage deployments → Edit (ดินสอ) → Version: New version → Deploy**
+   (ห้ามกด New deployment — URL `/exec` จะเปลี่ยน ทั้ง webhook บอทและเว็บจะหลุด)
+4. เช็ก Script Properties มี `GROUP_ID` ของกลุ่มจริง (พิมพ์ `ไอดีกลุ่ม` ในกลุ่ม → ต้องตอบ "กลุ่มหลักของระบบ")
+
+ทดสอบ: พิมพ์ `ค้นหา` ในกลุ่ม → กดปุ่ม → ต้องเห็น `◉ LIVE`
+เปิด URL `/exec` ตรง ๆ → ต้องเห็น `{"error":"unauthorized",...}`
+
+| ข้อความบนเว็บ | สาเหตุ |
+|---|---|
+| กรุณาเปิดผ่านปุ่มในกลุ่ม LINE | เว็บยังไม่มี `LIFF_ID` (ข้อ 2) หรือเปิด URL เว็บตรง ๆ แทนลิงก์ `liff.line.me` |
+| ไม่ได้รับ ID token | LIFF ไม่มี scope `openid` |
+| ยืนยันตัวตน LINE ไม่สำเร็จ | `LIFF_ID` ใน Apps Script ไม่ตรง / LIFF อยู่คนละ channel |
+| บัญชี LINE นี้ไม่ได้อยู่ในกลุ่ม | ไม่ใช่สมาชิก หรือ LIFF อยู่คนละ Provider กับบอท หรือ `GROUP_ID` ผิดกลุ่ม |
 - Apps Script ยังไม่ตรวจ `X-Line-Signature` (ข้อจำกัดของ Apps Script อ่าน header ไม่ได้) — ถ้าย้าย backend ควรเพิ่ม
 
 ## 8. ย้อนกลับเมื่อพัง

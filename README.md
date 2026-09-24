@@ -7,5 +7,6 @@ FINDER — ระบบค้นหาข้อมูลบุคคล (OV70) �
 | `index.html` | เว็บแอปที่ใช้งานจริง (bundle ไฟล์เดียว) — GitHub Pages เสิร์ฟไฟล์นี้ |
 | `source/People Finder App.dc.html` | ซอร์สหลักของเว็บแอป (UI + logic) |
 | `line-bot.gs` | Apps Script: `doGet` (JSON ให้เว็บ) + `doPost` (LINE webhook) + `notifyBirthdays` |
+| `tools/build_bundle.py` | สร้าง `index.html` ใหม่จากซอร์ส |
 | `HANDOFF.md` | เอกสารส่งมอบ: ภาพรวมระบบ, CONFIG, การย้าย server, ความปลอดภัย |
 | `README-setup.md` | คู่มือตั้งค่า Sheet / Apps Script / LIFF |
