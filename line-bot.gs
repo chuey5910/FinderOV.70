@@ -281,6 +281,9 @@ function getDataSheet() {
 // เมนู FINDER ใน Google Sheet
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('FINDER')
+    .addItem('✅ ย้ายข้อมูลที่ตรวจแล้ว', 'transferApproved')
+    .addItem('เตรียมช่องติ๊ก "ตรวจแล้ว" ในแท็บคำตอบ', 'setupReview')
+    .addSeparator()
     .addItem('ดูแท็บข้อมูลหลักปัจจุบัน', 'showDataSheet')
     .addItem('ใช้แท็บนี้เป็นข้อมูลหลัก', 'lockDataSheet')
     .addToUi();
@@ -298,4 +301,212 @@ function lockDataSheet() {
   if (ok !== ui.Button.YES) return;
   PropertiesService.getScriptProperties().setProperty('DATA_SHEET_ID', String(sheet.getSheetId()));
   ui.alert('ล็อกแท็บข้อมูลหลักเป็น "' + sheet.getName() + '" แล้ว');
+}
+
+// ====== 4) ย้ายคำตอบจาก Google Form ที่ตรวจแล้ว → แท็บข้อมูลหลัก ======
+// ในแท็บคำตอบ: ติ๊ก ☑ "ตรวจแล้ว" แถวที่ถูกต้อง → เมนู FINDER → ย้ายข้อมูลที่ตรวจแล้ว
+// - คนที่มีอยู่แล้ว (ชื่อ+นามสกุล หรือเบอร์โทรตรงกัน) → อัปเดตแถวเดิม เฉพาะช่องที่กรอกมา
+//   (ไม่แก้ชื่อ-นามสกุลเดิม เช่น ยศที่ใส่ไว้ — ถ้าต้องการเปลี่ยนให้แก้ในแท็บข้อมูลเอง)
+// - คนใหม่ → เพิ่มแถวท้ายสุด
+// - แถวที่ย้ายแล้วจะมีข้อความใน "สถานะการย้าย" และจะไม่ถูกย้ายซ้ำ
+var COL_CHECK  = 'ตรวจแล้ว';
+var COL_STATUS = 'สถานะการย้าย';
+var COL_ALIASES = { 'อัพเดตล่าสุด': ['ประทับเวลา', 'timestamp'] };
+
+function getResponseSheet() {
+  var dataId = getDataSheet().getSheetId();
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getSheetId() !== dataId && sheets[i].getFormUrl()) return sheets[i];
+  }
+  throw new Error('ไม่พบแท็บคำตอบจาก Google Form ในไฟล์นี้');
+}
+
+function trimStr(v) { return String(v == null ? '' : v).trim(); }
+function normKey(h) { return trimStr(h).replace(/[\s.\-_()]/g, '').toLowerCase(); }
+
+// จับคู่คอลัมน์ข้อมูลหลัก → คอลัมน์คำตอบ ตามชื่อหัวคอลัมน์
+function mapColumns(dataHeaders, respHeaders) {
+  var map = [], missing = [];
+  dataHeaders.forEach(function (h) {
+    var names = [h].concat(COL_ALIASES[h] || []);
+    var found = -1;
+    names.forEach(function (n) {
+      if (found !== -1) return;
+      for (var i = 0; i < respHeaders.length; i++) {
+        if (respHeaders[i] === COL_CHECK || respHeaders[i] === COL_STATUS) continue;
+        if (trimStr(respHeaders[i]) === n || normKey(respHeaders[i]) === normKey(n)) { found = i; return; }
+      }
+    });
+    map.push(found);
+    if (found === -1 && h) missing.push(h);
+  });
+  return { map: map, missing: missing };
+}
+
+// คีย์ระบุตัวคน: ชื่อ (ตัดยศ/คำนำหน้าที่มีจุด) + นามสกุล และเบอร์โทร 9 หลักท้าย
+function personKeys(headers, rec) {
+  var get = function (name) { var i = headers.indexOf(name); return i === -1 ? '' : trimStr(rec[i]); };
+  var first = get('ชื่อ'), last = get('นามสกุล');
+  var namePart = trimStr(first.split('.').pop()) || first;
+  var keys = [];
+  if (namePart || last) keys.push('n:' + (namePart + ' ' + last).replace(/\s+/g, ' ').trim().toLowerCase());
+  var digits = get('เบอร์โทรศัพท์').replace(/\D/g, '');
+  if (digits.length >= 9) keys.push('t:' + digits.slice(-9));
+  return keys;
+}
+
+function displayName(headers, rec) {
+  var get = function (name) { var i = headers.indexOf(name); return i === -1 ? '' : trimStr(rec[i]); };
+  return (get('ชื่อ') + ' ' + get('นามสกุล')).trim() || '(ไม่มีชื่อ)';
+}
+
+// อายุ: ถ้าคำตอบไม่มี ให้คำนวณจากวันเกิด (Date หรือ ว/ด/ปปปป — ปี > 2400 ถือเป็น พ.ศ.)
+function fillAge(headers, rec, today) {
+  var iAge = headers.indexOf('อายุ');
+  if (iAge === -1 || trimStr(rec[iAge]) !== '') return;
+  var iDob = -1;
+  headers.forEach(function (h, i) { if (iDob === -1 && String(h).indexOf('เกิด') !== -1) iDob = i; });
+  if (iDob === -1 || !rec[iDob]) return;
+  var v = rec[iDob], d, m, y;
+  if (Object.prototype.toString.call(v) === '[object Date]') { d = v.getDate(); m = v.getMonth() + 1; y = v.getFullYear(); }
+  else {
+    var p = trimStr(v).split('/');
+    if (p.length !== 3) return;
+    d = +p[0]; m = +p[1]; y = +p[2];
+    if (y > 2400) y -= 543;
+  }
+  if (!y) return;
+  var age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+  rec[iAge] = age;
+}
+
+// วางแผนการย้าย: แยกเป็นอัปเดตแถวเดิม / เพิ่มใหม่ (คำตอบซ้ำคนเดียวกันในรอบเดียวรวมเป็นรายการเดียว)
+function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, colStatus, today) {
+  var m = mapColumns(dataHeaders, respHeaders);
+  var index = {};
+  dataRows.forEach(function (r, i) {
+    personKeys(dataHeaders, r).forEach(function (k) { if (!(k in index)) index[k] = { row: i + 2 }; });
+  });
+  var items = [];
+  respRows.forEach(function (r, i) {
+    if (r[colCheck] !== true || trimStr(r[colStatus]) !== '') return;
+    var rec = m.map.map(function (ri) { return ri === -1 ? '' : r[ri]; });
+    fillAge(dataHeaders, rec, today);
+    var keys = personKeys(dataHeaders, rec);
+    if (!keys.length) return;
+    var hit = null;
+    keys.forEach(function (k) { if (!hit && index[k]) hit = index[k]; });
+    if (hit && hit.item) {                       // คนเดียวกับที่เพิ่งจะเพิ่มใหม่ในรอบนี้
+      mergeInto(hit.item.rec, rec);
+      hit.item.respRows.push(i + 2);
+      return;
+    }
+    var item = { rec: rec, respRows: [i + 2], row: hit ? hit.row : 0, name: displayName(dataHeaders, rec) };
+    items.push(item);
+    if (!hit) keys.forEach(function (k) { if (!(k in index)) index[k] = { item: item }; });
+  });
+  return { items: items, missing: m.missing };
+}
+
+// เขียนทับเฉพาะช่องที่มีค่า — ช่องที่คำตอบเว้นว่างไว้จะคงข้อมูลเดิม (skip = index ที่ห้ามแก้)
+function mergeInto(target, rec, skip) {
+  rec.forEach(function (v, j) {
+    if (skip && skip.indexOf(j) !== -1) return;
+    if (trimStr(v) !== '') target[j] = v;
+  });
+}
+
+// เพิ่มคอลัมน์ "ตรวจแล้ว" (ช่องติ๊ก) และ "สถานะการย้าย" ในแท็บคำตอบ ถ้ายังไม่มี
+function ensureReviewColumns(resp) {
+  var headers = resp.getRange(1, 1, 1, resp.getLastColumn()).getValues()[0].map(trimStr);
+  var created = false;
+  [COL_CHECK, COL_STATUS].forEach(function (h) {
+    if (headers.indexOf(h) === -1) {
+      resp.getRange(1, headers.length + 1).setValue(h);
+      headers.push(h);
+      created = true;
+    }
+  });
+  var check = headers.indexOf(COL_CHECK), status = headers.indexOf(COL_STATUS);
+  var rows = Math.max(resp.getMaxRows() - 1, 1);
+  resp.getRange(2, check + 1, rows, 1)
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+  return { check: check, status: status, created: created };
+}
+
+// ครั้งแรก: ทำเครื่องหมายคำตอบเก่าที่มีในข้อมูลหลักแล้ว ว่าไม่ต้องย้าย
+function setupReview() {
+  var ui = SpreadsheetApp.getUi();
+  var resp = getResponseSheet();
+  var cols = ensureReviewColumns(resp);
+  var data = getDataSheet();
+  var dv = data.getDataRange().getValues(), dh = dv.shift().map(trimStr);
+  var known = {};
+  dv.forEach(function (r) { personKeys(dh, r).forEach(function (k) { known[k] = true; }); });
+
+  var rv = resp.getDataRange().getValues(), rh = rv.shift().map(trimStr);
+  var m = mapColumns(dh, rh);
+  var marked = 0, pending = 0;
+  var statuses = rv.map(function (r) {
+    if (trimStr(r[cols.status]) !== '') return [r[cols.status]];
+    var rec = m.map.map(function (ri) { return ri === -1 ? '' : r[ri]; });
+    var keys = personKeys(dh, rec);
+    if (!keys.length) return [''];
+    if (keys.some(function (k) { return known[k]; })) { marked++; return ['มีในข้อมูลหลักแล้ว (ก่อนใช้ปุ่มย้าย)']; }
+    pending++;
+    return [''];
+  });
+  if (statuses.length) resp.getRange(2, cols.status + 1, statuses.length, 1).setValues(statuses);
+  ui.alert('เตรียมแท็บ "' + resp.getName() + '" แล้ว',
+    'คำตอบที่มีในข้อมูลหลักแล้ว: ' + marked + ' แถว (ไม่ต้องย้าย)\n' +
+    'คำตอบที่รอตรวจ: ' + pending + ' แถว\n\n' +
+    (m.missing.length ? '⚠️ คอลัมน์ที่ไม่มีในคำตอบ (จะไม่ถูกแก้): ' + m.missing.join(', ') + '\n\n' : '') +
+    'ตรวจแถวที่ "สถานะการย้าย" ว่าง → ติ๊ก ☑ ตรวจแล้ว → เมนู FINDER → ย้ายข้อมูลที่ตรวจแล้ว',
+    ui.ButtonSet.OK);
+}
+
+function transferApproved() {
+  var ui = SpreadsheetApp.getUi();
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(10000)) { ui.alert('มีคนกำลังย้ายข้อมูลอยู่ ลองใหม่อีกครั้ง'); return; }
+  try {
+    var data = getDataSheet(), resp = getResponseSheet();
+    var cols = ensureReviewColumns(resp);
+    var dv = data.getDataRange().getValues(), dh = dv.shift().map(trimStr);
+    var rv = resp.getDataRange().getValues(), rh = rv.shift().map(trimStr);
+    var plan = planTransfer(dh, dv, rh, rv, cols.check, cols.status, new Date());
+    if (!plan.items.length) { ui.alert('ไม่มีแถวที่ติ๊ก "ตรวจแล้ว" และยังไม่ได้ย้าย'); return; }
+
+    var adds = plan.items.filter(function (it) { return !it.row; });
+    var ups  = plan.items.filter(function (it) { return it.row; });
+    var list = function (arr) { return arr.map(function (it) { return '• ' + it.name; }).join('\n'); };
+    var msg = (adds.length ? 'เพิ่มคนใหม่ ' + adds.length + ' คน:\n' + list(adds) + '\n\n' : '') +
+              (ups.length ? 'อัปเดตข้อมูลเดิม ' + ups.length + ' คน:\n' + list(ups) + '\n\n' : '') +
+              (plan.missing.length ? '⚠️ คอลัมน์ที่ไม่มีในคำตอบ (จะไม่ถูกแก้): ' + plan.missing.join(', ') : '');
+    if (ui.alert('ย้ายไปแท็บ "' + data.getName() + '"?', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+
+    var width = dh.length;
+    var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd/M/yyyy HH:mm');
+    plan.items.forEach(function (it) {
+      var row = it.row;
+      if (row) {
+        var range = data.getRange(row, 1, 1, width);
+        var cur = range.getValues()[0];
+        mergeInto(cur, it.rec, [dh.indexOf('ชื่อ'), dh.indexOf('นามสกุล')]);
+        range.setValues([cur]);
+      } else {
+        row = data.getLastRow() + 1;
+        data.getRange(row, 1, 1, width).setValues([it.rec]);
+        if (row > 2) data.getRange(2, 1, 1, width).copyTo(data.getRange(row, 1, 1, width),
+          SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+      }
+      var note = (it.row ? 'อัปเดต' : 'เพิ่มใหม่') + ' แถว ' + row + ' · ' + stamp;
+      it.respRows.forEach(function (rr) { resp.getRange(rr, cols.status + 1).setValue(note); });
+    });
+    ui.alert('ย้ายเสร็จแล้ว — เพิ่มใหม่ ' + adds.length + ' คน, อัปเดต ' + ups.length + ' คน');
+  } finally {
+    lock.releaseLock();
+  }
 }
