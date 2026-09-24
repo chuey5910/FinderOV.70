@@ -65,7 +65,7 @@
       <div style="padding:12px 16px 10px">
         <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #33ff66;background:rgba(51,255,102,.06)">
           <span style="color:#6be38a;font-size:14px">&gt;</span>
-          <input value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นชื่อ · นามสกุล · ฉายา" style="flex:1;min-width:0;border:none;background:transparent;color:#7dffa0;font-family:'Kanit',sans-serif;font-size:18px;padding:0" />
+          <input value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นชื่อ · ฉายา · จังหวัด · ที่ทำงาน" style="flex:1;min-width:0;border:none;background:transparent;color:#7dffa0;font-family:'Kanit',sans-serif;font-size:18px;padding:0" />
           <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}"><span onClick="{{ clearQuery }}" style="color:#33ff66;font-size:14px;cursor:pointer">✕</span></sc-if>
         </div>
         <div style="display:flex;flex-wrap:nowrap;gap:6px;margin-top:11px;font-family:'Kanit',sans-serif">
@@ -237,6 +237,7 @@ class Component extends DCLogic {
   componentDidMount(){
     const C = Component.CONFIG;
     this._demo = this.state.people; // เก็บ demo ไว้ใช้กรณียังไม่ได้ต่อ Sheet
+    this.applyQueryParam();
     if(!C.SHEET_API_URL){
       if(C.SHEET_ID){ this.setState({ people: [], loading: true }); this.loadFromGviz(C.SHEET_ID); }
       return;
@@ -248,6 +249,14 @@ class Component extends DCLogic {
     else { this.loadFromSheet(C.SHEET_API_URL); }
   }
 
+  // ?q=เชียงใหม่ → เติมคำค้นให้ (ลิงก์จากบอท "ใครอยู่ ...")
+  applyQueryParam(){
+    try {
+      const q = new URLSearchParams(location.search).get('q');
+      if(q) this.setState({ query: q });
+    } catch(e) {}
+  }
+
   // login ผ่าน LIFF แล้วส่ง ID token ให้ Apps Script ตรวจว่าเป็นสมาชิกกลุ่ม
   async startLiff(C){
     const liff = await this.waitForLiff();
@@ -255,6 +264,7 @@ class Component extends DCLogic {
     try { await liff.init({ liffId: C.LIFF_ID }); }
     catch(e){ this.deny('เชื่อมต่อ LINE ไม่สำเร็จ'); return; }
     this._liff = liff;
+    this.applyQueryParam(); // LIFF อาจย้าย query จาก liff.state มาใส่ URL หลัง init
     if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
     const idToken = liff.getIDToken();
     if(!idToken){ this.deny('ไม่ได้รับ ID token — ตรวจว่า Scope ของ LIFF มี openid'); return; }
@@ -402,10 +412,17 @@ class Component extends DCLogic {
     return d.getDate() + ' ' + m[d.getMonth()] + ' ' + (d.getFullYear() + 543);
   }
 
+  // ค้นจากชื่อ / ฉายา / บ้าน / จังหวัด / ที่ทำงาน / ตำแหน่ง — "กทม" = "กรุงเทพฯ"
   matches(p, q){
     if(!q) return true;
-    const s = (p.first + ' ' + p.last + ' ' + p.chaya + ' ' + (p.catIn||'') + ' ' + (p.catLek||'')).toLowerCase();
-    return s.includes(q.toLowerCase());
+    const norm = (x) => String(x || '').toLowerCase().replace(/จังหวัด|จ\./g, '').replace(/[\s.ฯ\-]/g, '');
+    const nq = norm(q);
+    if(!nq) return true;
+    const bkk = ['กรุงเทพ', 'กทม', 'bangkok', 'bkk'];
+    const isBkk = (x) => bkk.some(a => x.indexOf(a) !== -1);
+    if(isBkk(nq)) return isBkk(norm(p.province));
+    const s = [p.first + p.last, p.chaya, p.catIn, p.catLek, p.province, p.work, p.position].map(norm).join('|');
+    return s.includes(nq);
   }
 
   renderVals(){
