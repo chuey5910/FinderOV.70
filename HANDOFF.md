@@ -54,7 +54,7 @@ LIFF_ID: '',                                                // ไม่ได�
 
 **Apps Script** — `line-bot.gs` ด้านบนไฟล์
 ```js
-var LINE_TOKEN = '...';                                        // Channel access token (อยู่ใน Apps Script แล้ว ไม่ได้ใส่ในไฟล์นี้)
+// LINE_TOKEN อยู่ใน ⚙️ การตั้งค่าโปรเจ็กต์ → พร็อพเพอร์ตี้ของสคริปต์ (ไม่อยู่ในไฟล์ — วางโค้ดใหม่ทับได้โดย token ไม่หาย)
 var APP_URL    = 'https://chuey5910.github.io/FinderOV.70/';  // ⚠️ เปลี่ยนเป็น URL server ใหม่
 var GROUP_ID   = '';                                           // ว่างไว้ — บอทเก็บเองใน Script Properties
 ```
@@ -144,7 +144,7 @@ server {
 
 ## 7. ความปลอดภัย
 - `index.html` ไม่มี secret — มีแค่ URL `/exec` และ LIFF ID (เปิดเผยได้)
-- `LINE_TOKEN` อยู่ใน Apps Script เท่านั้น — ถ้าหลุดให้ Issue ใหม่
+- `LINE_TOKEN` อยู่ใน Script Properties ของ Apps Script เท่านั้น (ไม่อยู่ใน repo) — ถ้าหลุดให้ Issue ใหม่แล้วแก้ค่าใน Script Properties
 - **จำกัดสิทธิ์ด้วย LIFF + สมาชิกกลุ่ม**: `doGet` ส่งข้อมูลเฉพาะคนที่ login LINE และเป็นสมาชิกกลุ่มหลัก (ดูหัวข้อ 7.1)
 - กลุ่มหลักถูกล็อกไว้ที่กลุ่มแรกที่บอทบันทึก — เชิญบอทไปกลุ่มอื่นไม่ได้สิทธิ์เพิ่ม
 - Google Sheet ต้อง **ไม่** แชร์แบบ "ทุกคนที่มีลิงก์" (ไม่งั้นข้ามการตรวจสิทธิ์ได้)
