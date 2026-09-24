@@ -534,7 +534,6 @@ function transferApproved() {
 
 // ====== 5) หาเพื่อนตามจังหวัด: "ใครอยู่ เชียงใหม่" / "หาเพื่อน กทม" ======
 var BKK_ALIASES = ['กรุงเทพ', 'กทม', 'bangkok', 'bkk'];
-var AREA_MAX_LINES = 40;
 
 // คืนชื่อพื้นที่ที่พิมพ์ต่อท้าย ('' ถ้าไม่ได้พิมพ์) หรือ null ถ้าไม่ใช่คำสั่งนี้
 function parseAreaCommand(text) {
@@ -571,15 +570,87 @@ function findByArea(q) {
   };
   var iArea = col(['จว.ที่อยู่', 'จังหวัด', 'ที่อยู่']);
   if (iArea === -1) return [];
-  var iFirst = col(['ชื่อ']), iLast = col(['นามสกุล']), iChaya = col(['ฉายา']), iWork = col(['ทำงาน']);
+  var iFirst = col(['ชื่อ']), iLast = col(['นามสกุล']), iChaya = col(['ฉายา']), iTel = col(['เบอร์โทรศัพท์', 'เบอร์โทร']);
   var val = function (r, i) { return i === -1 ? '' : String(r[i] == null ? '' : r[i]).trim(); };
   return rows
-    .filter(function (r) { return (val(r, iFirst) || val(r, iLast)) && areaMatch(r[iArea], q); })
-    .map(function (r) {
+    .map(function (r, i) {
+      // อีโมจิประจำตัวตามลำดับแถวในข้อมูลหลัก → ไม่ซ้ำกันทั้งรุ่น และเป็นตัวเดิมทุกครั้ง
       return { name: (val(r, iFirst) + ' ' + val(r, iLast)).trim(), chaya: val(r, iChaya),
-               work: val(r, iWork), area: val(r, iArea) };
+               tel: val(r, iTel), area: r[iArea], emoji: PERSON_EMOJIS[i % PERSON_EMOJIS.length] };
     })
+    .filter(function (p) { return p.name && areaMatch(p.area, q); })
     .sort(function (a, b) { return a.name.localeCompare(b.name, 'th'); });
+}
+
+// อีโมจิประจำตัว (มากกว่าจำนวนคนในรุ่น — ถ้ารุ่นเกิน 150 คนจะเริ่มวนซ้ำ)
+var PERSON_EMOJIS = (
+  '🦁 🐯 🐻 🐼 🐨 🐸 🐵 🦊 🐺 🐗 🐴 🦄 🐝 🦋 🐢 🐍 🦖 🐙 🦑 🦀 🐡 🐬 🐳 🦈 🐊 🦓 🦒 🐘 🦏 🦛 ' +
+  '🐪 🦘 🐃 🐂 🐎 🐏 🦌 🐕 🐈 🐓 🦃 🦚 🦜 🦢 🦩 🕊️ 🐇 🦝 🦨 🦡 🦫 🦦 🦥 🐿️ 🦔 🐉 🦕 🐋 🦭 🐧 ' +
+  '🦉 🦅 🦆 🐦 🐤 🐞 🐜 🪲 🦂 🐌 🌵 🌲 🌴 🍀 🌻 🌹 🌷 🌸 🍁 🍄 🌾 🌙 ⭐ 🌈 ⚡ 🔥 💧 🌊 ⛰️ 🌋 ' +
+  '🍎 🍊 🍋 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥥 🥑 🌶️ 🌽 🥕 🍔 🍕 🍜 🍣 🍩 ☕ 🍺 🏀 ⚽ 🏈 ⚾ 🎾 🏐 🏓 🥊 ' +
+  '🎸 🎺 🎷 🥁 🎻 🎹 🎨 🎯 🎲 🧩 🚀 ✈️ 🚁 ⛵ 🚂 🏍️ 🚲 🛶 ⚓ 🗿 🏰 🗼 🎡 🎪 🔔 🔑 💎 🧭 ⏰ 🏆'
+).split(' ');
+
+var AREA_PER_CARD = 8;
+var AREA_MAX_CARDS = 9;    // LINE จำกัด 12 การ์ด และ ~50KB ต่อข้อความ (9 การ์ด = 72 คน ≈ 46KB)
+
+function telDigits(tel) {
+  var d = String(tel || '').replace(/[^\d+]/g, '');
+  return d.replace(/(?!^)\+/g, '');
+}
+
+function personRow(p, first) {
+  var box = [
+    { type: 'text', text: p.emoji + '  ' + p.name, weight: 'bold', size: 'md', color: '#111111', wrap: true }
+  ];
+  if (p.chaya) box.push({ type: 'text', text: 'ฉายา ' + p.chaya, size: 'sm', color: '#666666', wrap: true });
+  var digits = telDigits(p.tel);
+  if (digits.length >= 6) {
+    box.push({ type: 'text', text: '📞 ' + p.tel, size: 'md', color: '#1f9e3f', weight: 'bold',
+               decoration: 'underline', action: { type: 'uri', label: 'โทร', uri: 'tel:' + digits } });
+  } else {
+    box.push({ type: 'text', text: '📞 —', size: 'sm', color: '#aaaaaa' });
+  }
+  var row = { type: 'box', layout: 'vertical', spacing: 'xs', paddingTop: first ? 'none' : 'lg', contents: box };
+  return first ? [row] : [{ type: 'separator', margin: 'lg', color: '#dddddd' }, row];
+}
+
+function areaCards(q, list, link) {
+  var shown = list.slice(0, AREA_PER_CARD * AREA_MAX_CARDS);
+  var pages = Math.ceil(shown.length / AREA_PER_CARD);
+  var bubbles = [];
+  for (var pg = 0; pg < pages; pg++) {
+    var people = shown.slice(pg * AREA_PER_CARD, (pg + 1) * AREA_PER_CARD);
+    var rows = [];
+    people.forEach(function (p, i) { rows = rows.concat(personRow(p, i === 0)); });
+    bubbles.push({
+      type: 'bubble', size: 'mega',
+      header: { type: 'box', layout: 'vertical', backgroundColor: '#0b1a0e', paddingAll: 'lg', contents: [
+        { type: 'text', text: '📍 ' + q, weight: 'bold', size: 'lg', color: '#33ff66', wrap: true },
+        { type: 'text', text: list.length + ' คน' + (pages > 1 ? ' · หน้า ' + (pg + 1) + '/' + pages + (pg + 1 < pages ? '  ปัดขวา ›' : '') : ''),
+          size: 'xs', color: '#9be8ae' }
+      ] },
+      body: { type: 'box', layout: 'vertical', paddingAll: 'lg', contents: rows },
+      footer: { type: 'box', layout: 'vertical', contents: [
+        { type: 'button', style: 'secondary', height: 'sm',
+          action: { type: 'uri', label: '🔍 ดูทั้งหมดในเว็บ', uri: link } }
+      ] }
+    });
+  }
+  return {
+    type: 'flex',
+    altText: '📍 เพื่อนที่อยู่ "' + q + '" — ' + list.length + ' คน',
+    contents: bubbles.length === 1 ? bubbles[0] : { type: 'carousel', contents: bubbles }
+  };
+}
+
+// ข้อความสำรอง ถ้า LINE ไม่รับการ์ด
+function areaText(q, list, link) {
+  var lines = list.slice(0, 40).map(function (p) {
+    return p.emoji + ' ' + p.name + (p.chaya ? ' (' + p.chaya + ')' : '') + (p.tel ? '\n     📞 ' + p.tel : '');
+  });
+  if (list.length > 40) lines.push('…และอีก ' + (list.length - 40) + ' คน');
+  return '📍 เพื่อนที่อยู่ "' + q + '" — ' + list.length + ' คน\n\n' + lines.join('\n\n') + '\n\n🔍 ' + link;
 }
 
 function replyArea(ev, q) {
@@ -594,12 +665,6 @@ function replyArea(ev, q) {
     replyText(ev.replyToken, '📍 ไม่พบเพื่อนที่อยู่ "' + q + '"\nลองพิมพ์ชื่อจังหวัดแบบอื่น เช่น ชื่อย่อ หรือชื่อเมือง');
     return;
   }
-  var cut = function (s, n) { return s.length > n ? s.slice(0, n - 1) + '…' : s; };
-  var lines = list.slice(0, AREA_MAX_LINES).map(function (p) {
-    return '• ' + p.name + (p.chaya ? ' (' + p.chaya + ')' : '') + (p.work ? ' · ' + cut(p.work, 30) : '');
-  });
-  if (list.length > AREA_MAX_LINES) lines.push('…และอีก ' + (list.length - AREA_MAX_LINES) + ' คน');
-  replyText(ev.replyToken,
-    '📍 เพื่อนที่อยู่ "' + q + '" — ' + list.length + ' คน\n' + lines.join('\n') +
-    '\n\n📞 ดูเบอร์โทร / ID Line:\n' + link);
+  var res = lineApi('message/reply', { replyToken: ev.replyToken, messages: [areaCards(q, list, link)] });
+  if (res.getResponseCode() !== 200) replyText(ev.replyToken, areaText(q, list, link));
 }
