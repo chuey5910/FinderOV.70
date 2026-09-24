@@ -8,7 +8,9 @@
  */
 
 // ====== ตั้งค่า ======
-var LINE_TOKEN = 'วาง Channel access token ที่นี่';          // จาก Messaging API channel
+// Channel access token เก็บใน ⚙️ การตั้งค่าโปรเจ็กต์ → พร็อพเพอร์ตี้ของสคริปต์ → ชื่อ LINE_TOKEN
+// (ไม่ต้องแก้ไฟล์นี้ — วางโค้ดใหม่ทับได้เลย token ไม่หาย)
+var LINE_TOKEN = PropertiesService.getScriptProperties().getProperty('LINE_TOKEN') || '';
 var LIFF_ID    = '2011726514-IlkDrkPZ';                      // ค่าเดียวกับในเว็บ
 var APP_URL    = 'https://liff.line.me/' + LIFF_ID;           // ปุ่มในกลุ่มเปิดผ่าน LIFF เพื่อให้ login LINE ได้
 var GROUP_ID   = '';  // ไม่ต้องกรอก! บอทบันทึก Group ID ของ "กลุ่มแรก" ที่มีคนพิมพ์ให้เอง (ดู saveGroupId)
@@ -258,7 +260,9 @@ function testToken() {
   if (res.getResponseCode() === 200) {
     Logger.log('✅ token ใช้ได้ — บอท: ' + JSON.parse(res.getContentText()).displayName);
   } else {
-    Logger.log('❌ token ใช้ไม่ได้ (' + res.getResponseCode() + ') — ไปคัดลอก Channel access token ใหม่ใน LINE Developers');
+    Logger.log(LINE_TOKEN
+      ? '❌ token ใช้ไม่ได้ (' + res.getResponseCode() + ') — ไปคัดลอก Channel access token ใหม่ใน LINE Developers'
+      : '❌ ยังไม่ได้ใส่ token — ⚙️ การตั้งค่าโปรเจ็กต์ → พร็อพเพอร์ตี้ของสคริปต์ → เพิ่ม LINE_TOKEN');
   }
   Logger.log('กลุ่มหลัก (GROUP_ID): ' + (getGroupId() || '— ยังไม่มี: พิมพ์อะไรก็ได้ในกลุ่ม 1 ครั้ง'));
   Logger.log('แท็บข้อมูลที่เว็บอ่าน: "' + getDataSheet().getName() + '"');
