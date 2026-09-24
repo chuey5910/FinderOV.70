@@ -44,7 +44,7 @@
     <div style="position:absolute;inset:0;pointer-events:none;z-index:20;background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px)"></div>
     <div style="position:absolute;inset:0;pointer-events:none;z-index:19;background:radial-gradient(120% 80% at 50% 40%,rgba(51,255,102,.08),transparent 72%)"></div>
     <!-- centered watermark (black bg removed via screen blend) -->
-    <img src="uploads/wallpaperiphone.PNG" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;opacity:.4;pointer-events:none;z-index:2" />
+    <img src="uploads/wallpaperiphone.PNG" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;opacity:.12;pointer-events:none;z-index:2" />
 
     <!-- status bar -->
     <div style="height:32px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 18px;color:#33ff66;font-size:12px;z-index:5">09:41 <span>[███] BAT100%</span></div>
@@ -57,15 +57,15 @@
         <img src="uploads/ov70_crop.png" alt="VAJIRAVUDH 70" style="display:block;width:100%;height:auto;mix-blend-mode:screen;margin:0 0 6px" />
         <div style="font-family:'VT323',monospace;font-size:42px;line-height:.8;color:#33ff66;text-shadow:0 0 10px rgba(51,255,102,.6);letter-spacing:2px">FINDER_</div>
         <div style="margin-top:5px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;color:#1f9e3f;letter-spacing:.5px;white-space:nowrap">// ฐานข้อมูลบุคคล : {{ total }} records</span>
-          <span style="font-size:14px;letter-spacing:1px;white-space:nowrap;{{ statusStyle }}">{{ statusLabel }}</span>
+          <span style="font-size:14px;color:#6be38a;letter-spacing:.5px;white-space:nowrap">// ฐานข้อมูลบุคคล : {{ total }} records</span>
+          <span style="font-size:15px;letter-spacing:1px;white-space:nowrap;{{ statusStyle }}">{{ statusLabel }}</span>
         </div>
       </div>
       <!-- search + filters -->
       <div style="padding:12px 16px 10px">
         <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #33ff66;background:rgba(51,255,102,.06)">
-          <span style="color:#1f9e3f;font-size:14px">&gt;</span>
-          <input value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นชื่อ · นามสกุล · ฉายา" style="flex:1;min-width:0;border:none;background:transparent;color:#7dffa0;font-family:'Kanit',sans-serif;font-size:16px;padding:0" />
+          <span style="color:#6be38a;font-size:14px">&gt;</span>
+          <input value="{{ query }}" onInput="{{ setQuery }}" placeholder="ค้นชื่อ · นามสกุล · ฉายา" style="flex:1;min-width:0;border:none;background:transparent;color:#7dffa0;font-family:'Kanit',sans-serif;font-size:18px;padding:0" />
           <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}"><span onClick="{{ clearQuery }}" style="color:#33ff66;font-size:14px;cursor:pointer">✕</span></sc-if>
         </div>
         <div style="display:flex;flex-wrap:nowrap;gap:6px;margin-top:11px;font-family:'Kanit',sans-serif">
@@ -83,30 +83,38 @@
       </div>
       <!-- results -->
       <div class="_noscroll" style="flex:1;overflow-y:auto;padding:2px 16px 14px;min-height:0">
-        <div style="font-size:10px;color:#1f9e3f;letter-spacing:1px;padding:4px 0 4px;border-bottom:1px dashed rgba(51,255,102,.3)">FOUND: {{ count }} &nbsp;|&nbsp; SORT: NAME↑</div>
+        <div style="font-size:13px;color:#6be38a;letter-spacing:1px;padding:6px 0 6px;border-bottom:1px dashed rgba(51,255,102,.3)">FOUND: {{ count }} &nbsp;|&nbsp; SORT: NAME↑</div>
         <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
           <div style="padding:40px 8px;text-align:center;color:#33ff66;font-family:'Kanit',sans-serif">
-            <div style="font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:2px">◌ กำลังโหลดข้อมูล…</div>
-            <div style="margin-top:8px;font-size:12px;color:#1f9e3f">เชื่อมต่อฐานข้อมูล</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:16px;letter-spacing:2px">◌ กำลังโหลดข้อมูล…</div>
+            <div style="margin-top:8px;font-size:15px;color:#6be38a">เชื่อมต่อฐานข้อมูล</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isLocked }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:40px 8px;text-align:center;font-family:'Kanit',sans-serif">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:15px;letter-spacing:2px;color:#ff5a5a;font-size:18px">! ACCESS DENIED</div>
+            <div style="margin-top:10px;font-size:17px;color:#eafff0">{{ authMsg }}</div>
+            <div style="margin-top:6px;font-size:15px;color:#6be38a">เปิดจากปุ่มในกลุ่ม LINE ด้วยบัญชีที่เป็นสมาชิกกลุ่ม</div>
+            <div onClick="{{ retry }}" style="display:inline-block;margin-top:16px;padding:8px 18px;border:1px solid #33ff66;color:#33ff66;font-size:16px;cursor:pointer">[ ลองใหม่ ]</div>
           </div>
         </sc-if>
         <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
           <sc-for list="{{ results }}" as="p" hint-placeholder-count="4">
             <div onClick="{{ p.open }}" style="display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid rgba(51,255,102,.12);cursor:pointer">
-              <span style="color:#1f9e3f;font-size:12px">{{ p.num }}</span>
-              <div style="width:38px;height:38px;flex:none;border:1px solid #33ff66;background:rgba(51,255,102,.1);display:flex;align-items:center;justify-content:center;font-family:'Kanit',sans-serif;font-weight:700;font-size:14px;color:#33ff66">{{ p.initials }}</div>
+              <span style="color:#6be38a;font-size:14px">{{ p.num }}</span>
+              <div style="width:44px;height:44px;flex:none;border:1px solid #33ff66;background:rgba(51,255,102,.1);display:flex;align-items:center;justify-content:center;font-family:'Kanit',sans-serif;font-weight:700;font-size:16px;color:#33ff66">{{ p.initials }}</div>
               <div style="min-width:0;flex:1;font-family:'Kanit',sans-serif">
-                <div style="font-size:16px;color:#c9ffd6;font-weight:600;line-height:1.25">{{ p.name }}</div>
-                <div style="font-size:16px;color:#1f9e3f;line-height:1.3">ฉายา {{ p.chaya }}</div>
+                <div style="font-size:19px;color:#eafff0;font-weight:600;line-height:1.3">{{ p.name }}</div>
+                <div style="font-size:17px;color:#8ef5a8;font-weight:500;line-height:1.35">ฉายา {{ p.chaya }}</div>
               </div>
-              <span style="color:#33ff66;font-size:13px">▸</span>
+              <span style="color:#33ff66;font-size:15px">▸</span>
             </div>
           </sc-for>
         </sc-if>
         <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
-          <div style="padding:34px 8px;text-align:center;color:#1f9e3f;font-size:13px;letter-spacing:1px">
-            <div style="font-size:15px;color:#ff5a5a">! NO MATCH</div>
-            <div style="margin-top:8px;font-family:'Kanit',sans-serif;font-size:12px">ไม่พบรายชื่อที่ตรงกับ “{{ query }}”</div>
+          <div style="padding:34px 8px;text-align:center;color:#6be38a;font-size:15px;letter-spacing:1px">
+            <div style="font-size:18px;color:#ff5a5a">! NO MATCH</div>
+            <div style="margin-top:8px;font-family:'Kanit',sans-serif;font-size:15px">ไม่พบรายชื่อที่ตรงกับ “{{ query }}”</div>
           </div>
         </sc-if>
       </div>
@@ -116,17 +124,17 @@
     <!-- ======= DETAIL VIEW ======= -->
     <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
     <div style="flex:1;display:flex;flex-direction:column;min-height:0;z-index:5">
-      <div style="padding:8px 16px 0;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#33ff66">
-        <span onClick="{{ back }}" style="cursor:pointer">&lt; RETURN</span><span style="color:#1f9e3f">REC {{ sel.rec }}/{{ total }}</span>
+      <div style="padding:8px 16px 0;display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#33ff66">
+        <span onClick="{{ back }}" style="cursor:pointer">&lt; RETURN</span><span style="color:#6be38a">REC {{ sel.rec }}/{{ total }}</span>
       </div>
       <!-- hero -->
       <div style="padding:14px 16px 12px;border-bottom:1px dashed rgba(51,255,102,.4)">
         <div style="display:flex;gap:14px;align-items:center">
           <div style="width:80px;height:80px;flex:none;border:1px solid #33ff66;background:rgba(51,255,102,.08);display:flex;align-items:center;justify-content:center;font-family:'Kanit',sans-serif;font-weight:700;font-size:30px;color:#33ff66;box-shadow:0 0 14px rgba(51,255,102,.3) inset">{{ sel.initials }}</div>
           <div style="font-family:'Kanit',sans-serif;min-width:0">
-            <div style="font-size:19px;font-weight:700;color:#c9ffd6;line-height:1.1">{{ sel.name }}</div>
-            <div style="font-size:12px;color:#33ff66;margin-top:2px">ฉายา {{ sel.chaya }}</div>
-            <div style="margin-top:7px;display:inline-block;font-size:10px;padding:3px 9px;background:#33ff66;color:#052b0f;font-weight:600">{{ sel.badge }}</div>
+            <div style="font-size:22px;font-weight:700;color:#eafff0;line-height:1.2">{{ sel.name }}</div>
+            <div style="font-size:17px;color:#33ff66;margin-top:2px">ฉายา {{ sel.chaya }}</div>
+            <div style="margin-top:7px;display:inline-block;font-size:13px;padding:3px 9px;background:#33ff66;color:#052b0f;font-weight:600">{{ sel.badge }}</div>
           </div>
         </div>
       </div>
@@ -135,47 +143,47 @@
       <sc-if value="{{ notEditing }}" hint-placeholder-val="{{ true }}">
       <div class="_noscroll" style="flex:1;overflow-y:auto;padding:10px 16px 12px;min-height:0">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;padding:7px 10px;border:1px solid rgba(255,176,0,.6);background:rgba(255,176,0,.08);font-family:'Kanit',sans-serif">
-          <span style="color:#ffb000;font-size:12px">◍</span>
-          <span style="font-size:11px;color:#ffb000">อัพเดตล่าสุด</span>
-          <span style="margin-left:auto;font-size:12px;color:#ffd98a;font-weight:600">{{ sel.updated }}</span>
+          <span style="color:#ffb000;font-size:14px">◍</span>
+          <span style="font-size:14px;color:#ffc233">อัพเดตล่าสุด</span>
+          <span style="margin-left:auto;font-size:15px;color:#ffd98a;font-weight:600">{{ sel.updated }}</span>
         </div>
         <div style="font-family:'Kanit',sans-serif">
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ชื่อ</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.first }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">นามสกุล</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.last }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ฉายา</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.chaya }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">คณะเด็กเล็ก</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.lekVal }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">คณะเด็กใน</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.inVal }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">วันเดือนปีเกิด</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.dob }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">อายุ</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.age }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">เบอร์โทรศัพท์</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.tel }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ID Line</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.line }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">จว.ที่อยู่</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.province }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ทำงาน</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.work }}</span></div>
-          <div style="display:flex;gap:10px;padding:8px 0"><span style="width:120px;flex:none;font-size:17px;color:#1f9e3f">ตำแหน่ง</span><span style="flex:1;font-size:19px;color:#c9ffd6">{{ sel.position }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">ชื่อ</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.first }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">นามสกุล</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.last }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">ฉายา</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.chaya }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">คณะเด็กเล็ก</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.lekVal }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">คณะเด็กใน</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.inVal }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">วันเดือนปีเกิด</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.dob }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">อายุ</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.age }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">เบอร์โทรศัพท์</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.tel }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">ID Line</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.line }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">จว.ที่อยู่</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.province }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(51,255,102,.12)"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">ทำงาน</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.work }}</span></div>
+          <div style="display:flex;gap:10px;padding:8px 0"><span style="width:120px;flex:none;font-size:17px;color:#8ef5a8">ตำแหน่ง</span><span style="flex:1;font-size:20px;color:#eafff0">{{ sel.position }}</span></div>
         </div>
       </div>
       <!-- actions -->
       <div style="display:flex;padding:12px 16px 16px;gap:9px;font-family:'Kanit',sans-serif;border-top:1px dashed rgba(51,255,102,.4)">
-        <a href="{{ sel.telHref }}" style="flex:1;text-decoration:none;text-align:center;padding:12px 0;border:1px solid #33ff66;color:#33ff66;font-size:13px;font-weight:600">📞 โทร</a>
-        <div onClick="{{ chat }}" style="flex:1;text-align:center;padding:12px 0;background:#33ff66;color:#052b0f;font-size:13px;font-weight:700;cursor:pointer">💬 คัดลอก ID Line</div>
+        <a href="{{ sel.telHref }}" style="flex:1;text-decoration:none;text-align:center;padding:12px 0;border:1px solid #33ff66;color:#33ff66;font-size:17px;font-weight:600">📞 โทร</a>
+        <div onClick="{{ chat }}" style="flex:1;text-align:center;padding:12px 0;background:#33ff66;color:#052b0f;font-size:17px;font-weight:700;cursor:pointer">💬 คัดลอก ID Line</div>
       </div>
       </sc-if>
 
       <!-- EDIT MODE -->
       <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
       <div class="_noscroll" style="flex:1;overflow-y:auto;padding:12px 16px;min-height:0">
-        <div style="font-size:10px;color:#ffb000;letter-spacing:1px;margin-bottom:8px">✎ EDIT MODE — แก้ไขข้อมูล</div>
+        <div style="font-size:13px;color:#ffb000;letter-spacing:1px;margin-bottom:8px">✎ EDIT MODE — แก้ไขข้อมูล</div>
         <div style="display:flex;flex-direction:column;gap:9px">
-          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">เบอร์โทรศัพท์<input value="{{ draft.tel }}" onInput="{{ setTel }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
-          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">ID Line<input value="{{ draft.line }}" onInput="{{ setLine }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
-          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">จว.ที่อยู่<input value="{{ draft.province }}" onInput="{{ setProvince }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
-          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">ทำงาน<input value="{{ draft.work }}" onInput="{{ setWork }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
-          <label style="font-size:10px;color:#1f9e3f;letter-spacing:1px">ตำแหน่ง<input value="{{ draft.position }}" onInput="{{ setPosition }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#c9ffd6;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:13px;color:#6be38a;letter-spacing:1px">เบอร์โทรศัพท์<input value="{{ draft.tel }}" onInput="{{ setTel }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#eafff0;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:13px;color:#6be38a;letter-spacing:1px">ID Line<input value="{{ draft.line }}" onInput="{{ setLine }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#eafff0;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:13px;color:#6be38a;letter-spacing:1px">จว.ที่อยู่<input value="{{ draft.province }}" onInput="{{ setProvince }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#eafff0;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:13px;color:#6be38a;letter-spacing:1px">ทำงาน<input value="{{ draft.work }}" onInput="{{ setWork }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#eafff0;font-size:13px;font-family:'Kanit',sans-serif" /></label>
+          <label style="font-size:13px;color:#6be38a;letter-spacing:1px">ตำแหน่ง<input value="{{ draft.position }}" onInput="{{ setPosition }}" style="width:100%;margin-top:3px;padding:8px 10px;background:rgba(51,255,102,.06);border:1px solid #33ff66;color:#eafff0;font-size:13px;font-family:'Kanit',sans-serif" /></label>
         </div>
       </div>
       <div style="display:flex;padding:12px 16px 16px;gap:8px;font-family:'Kanit',sans-serif;border-top:1px dashed rgba(51,255,102,.4)">
-        <div onClick="{{ cancelEdit }}" style="flex:1;text-align:center;padding:11px 0;border:1px solid #ff5a5a;color:#ff5a5a;font-size:12px;font-weight:600;cursor:pointer">[ ยกเลิก ]</div>
-        <div onClick="{{ saveEdit }}" style="flex:2;text-align:center;padding:11px 0;background:#33ff66;color:#052b0f;font-size:12px;font-weight:700;cursor:pointer">[ ✓ บันทึก ]</div>
+        <div onClick="{{ cancelEdit }}" style="flex:1;text-align:center;padding:11px 0;border:1px solid #ff5a5a;color:#ff5a5a;font-size:15px;font-weight:600;cursor:pointer">[ ยกเลิก ]</div>
+        <div onClick="{{ saveEdit }}" style="flex:2;text-align:center;padding:11px 0;background:#33ff66;color:#052b0f;font-size:15px;font-weight:700;cursor:pointer">[ ✓ บันทึก ]</div>
       </div>
       </sc-if>
     </div>
@@ -183,7 +191,7 @@
 
     <!-- toast -->
     <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
-      <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;background:#052b0f;border:1px solid #33ff66;color:#33ff66;font-family:'Kanit',sans-serif;font-size:12px;padding:9px 16px;box-shadow:0 0 18px rgba(51,255,102,.4);white-space:nowrap">{{ toast }}</div>
+      <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;background:#052b0f;border:1px solid #33ff66;color:#33ff66;font-family:'Kanit',sans-serif;font-size:15px;padding:9px 16px;box-shadow:0 0 18px rgba(51,255,102,.4);white-space:nowrap">{{ toast }}</div>
     </sc-if>
   </div>
 </div>
@@ -194,16 +202,19 @@ class Component extends DCLogic {
   static CONFIG = {
     // ✅ วิธีที่แนะนำ (Sheet เป็นส่วนตัว, อ่านอย่างเดียว): วาง URL ของ Apps Script Web App ที่นี่
     SHEET_API_URL: 'https://script.google.com/macros/s/AKfycbzt31HyaIPtgk-nSgN1cK5k4X72qoImDX_fl_oAhKikqtHPxQeCGWJfXT-lYXg2gAsIDg/exec',
-    // (ทางเลือกสำรอง) ดึงตรงจาก Sheet — ใช้เฉพาะกรณีตั้งแชร์ "ทุกคนที่มีลิงก์ดูได้" เท่านั้น
-    SHEET_ID: '1oOK4TJPGJWVFT008O1fejOUrfYLLgrn1-64sgdLlIxE',
-    LIFF_ID: '',         // วาง LIFF ID จาก LINE Developers Console
+    // (ทางเลือกสำรอง) ดึงตรงจาก Sheet แบบไม่ยืนยันตัวตน — ปิดไว้ เพราะต้องให้ Sheet เป็น public
+    SHEET_ID: '',
+    // ✅ จำเป็น: LIFF ID (LINE Login channel ที่อยู่ Provider เดียวกับบอท, Scope ต้องมี openid)
+    //    ข้อมูลจริงจะส่งให้เฉพาะบัญชี LINE ที่เป็นสมาชิกกลุ่มเท่านั้น (ตรวจที่ Apps Script)
+    LIFF_ID: '',
   };
 
   state = {
     view: 'list',
     query: '',
-    dataSource: 'demo',  // 'demo' | 'live'
+    dataSource: 'demo',  // 'demo' | 'live' | 'locked'
     loading: false,
+    authMsg: '',
     filterHouse: 'all',
     openDrop: null,
     selId: null,
@@ -225,14 +236,55 @@ class Component extends DCLogic {
 
   componentDidMount(){
     const C = Component.CONFIG;
-    // เริ่ม LINE LIFF ถ้าตั้งค่าไว้ (ทำให้รันในแอป LINE ได้)
-    if(C.LIFF_ID && window.liff){
-      window.liff.init({ liffId: C.LIFF_ID }).catch(() => {});
+    this._demo = this.state.people; // เก็บ demo ไว้ใช้กรณียังไม่ได้ต่อ Sheet
+    if(!C.SHEET_API_URL){
+      if(C.SHEET_ID){ this.setState({ people: [], loading: true }); this.loadFromGviz(C.SHEET_ID); }
+      return;
     }
-    // ดึงข้อมูลสดจาก Google Sheet ถ้าตั้งค่าไว้
-    this._demo = this.state.people; // เก็บ demo ไว้ใช้กรณีต่อ Sheet ไม่ได้
-    if(C.SHEET_API_URL){ this.setState({ people: [], loading: true }); this.loadFromSheet(C.SHEET_API_URL); }
-    else if(C.SHEET_ID){ this.setState({ people: [], loading: true }); this.loadFromGviz(C.SHEET_ID); }
+    this.setState({ people: [], loading: true });
+    // มี LIFF_ID → login LINE แล้วส่ง ID token ไปให้ Apps Script ตรวจสิทธิ์สมาชิกกลุ่ม
+    // ไม่มี LIFF_ID → ดึงแบบเดิม (Apps Script ที่เปิดตรวจสิทธิ์แล้วจะตอบ unauthorized)
+    if(C.LIFF_ID){ this.startLiff(C); }
+    else { this.loadFromSheet(C.SHEET_API_URL); }
+  }
+
+  // login ผ่าน LIFF แล้วส่ง ID token ให้ Apps Script ตรวจว่าเป็นสมาชิกกลุ่ม
+  async startLiff(C){
+    const liff = await this.waitForLiff();
+    if(!liff){ this.deny('โหลด LINE SDK ไม่สำเร็จ'); return; }
+    try { await liff.init({ liffId: C.LIFF_ID }); }
+    catch(e){ this.deny('เชื่อมต่อ LINE ไม่สำเร็จ'); return; }
+    this._liff = liff;
+    if(!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
+    const idToken = liff.getIDToken();
+    if(!idToken){ this.deny('ไม่ได้รับ ID token — ตรวจว่า Scope ของ LIFF มี openid'); return; }
+    const sep = C.SHEET_API_URL.indexOf('?') === -1 ? '?' : '&';
+    this.loadFromSheet(C.SHEET_API_URL + sep + 'idToken=' + encodeURIComponent(idToken));
+  }
+
+  waitForLiff(){
+    return new Promise(resolve => {
+      let n = 0;
+      const tick = () => {
+        if(window.liff) return resolve(window.liff);
+        if(++n > 50) return resolve(null);
+        setTimeout(tick, 100);
+      };
+      tick();
+    });
+  }
+
+  deny(msg){
+    this.setState({ people: [], loading: false, dataSource: 'locked', authMsg: msg });
+  }
+
+  // ID token หมดอายุ → login ใหม่ 1 ครั้ง (กันวนลูป)
+  relogin(){
+    let tried = false;
+    try { tried = sessionStorage.getItem('finder_relogin') === '1'; sessionStorage.setItem('finder_relogin', '1'); } catch(e) {}
+    if(tried || !this._liff){ this.deny('เซสชัน LINE หมดอายุ — ปิดแล้วเปิดใหม่จากกลุ่ม'); return; }
+    try { this._liff.logout(); } catch(e) {}
+    this._liff.login({ redirectUri: location.href });
   }
 
   // ใช้ข้อมูลตัวอย่างเฉพาะเมื่อดึงจาก Sheet ไม่สำเร็จ
@@ -283,15 +335,17 @@ class Component extends DCLogic {
     try {
       const res = await fetch(url, { cache: 'no-store' });
       const rows = await res.json();
+      if(rows && !Array.isArray(rows) && rows.error){
+        if(rows.error === 'token_expired'){ this.relogin(); return; }
+        this.deny(rows.message || 'ไม่มีสิทธิ์เข้าถึงข้อมูล');
+        return;
+      }
+      try { sessionStorage.removeItem('finder_relogin'); } catch(e) {}
       const list = (Array.isArray(rows) ? rows : (rows.data || []));
       const people = list.map((r, i) => this.normalize(r, i)).filter(Boolean);
-      if(people.length){
-        this.setState({ people, dataSource: 'live', loading: false });
-      } else {
-        this.fallbackDemo();
-      }
+      this.setState({ people, dataSource: 'live', loading: false, authMsg: '' });
     } catch(e){
-      this.fallbackDemo();
+      this.deny('เชื่อมต่อฐานข้อมูลไม่สำเร็จ');
     }
   }
 
@@ -355,10 +409,11 @@ class Component extends DCLogic {
   }
 
   renderVals(){
-    const { people, query, filterHouse, openDrop, selId, editing, draft, toast, dataSource, loading } = this.state;
+    const { people, query, filterHouse, openDrop, selId, editing, draft, toast, dataSource, loading, authMsg } = this.state;
     const q = query.trim();
-    const statusLabel = loading ? '◌ โหลด…' : (dataSource === 'live' ? '◉ LIVE' : '◉ DEMO');
-    const statusStyle = dataSource === 'live' ? 'color:#33ff66' : 'color:#1f9e3f';
+    const locked = dataSource === 'locked';
+    const statusLabel = loading ? '◌ โหลด…' : (locked ? '◉ LOCKED' : (dataSource === 'live' ? '◉ LIVE' : '◉ DEMO'));
+    const statusStyle = locked ? 'color:#ff5a5a' : (dataSource === 'live' ? 'color:#33ff66' : 'color:#6be38a');
 
     const catStr = (p) => {
       const parts = [];
@@ -372,15 +427,15 @@ class Component extends DCLogic {
 
     const inHouses = ['ผบก.','ดส.','จล.','พท.'];
     const lekHouses = ['สจ.','นอ.','สร.'];
-    const chipActive = 'font-size:13px;padding:6px 10px;background:#33ff66;color:#052b0f;font-weight:600;cursor:pointer;white-space:nowrap';
-    const chipIdle = 'font-size:13px;padding:6px 10px;border:1px solid #1f9e3f;color:#33ff66;cursor:pointer;white-space:nowrap';
+    const chipActive = 'font-size:15px;padding:7px 11px;background:#33ff66;color:#052b0f;font-weight:600;cursor:pointer;white-space:nowrap';
+    const chipIdle = 'font-size:15px;padding:7px 11px;border:1px solid #2fbf55;color:#5dff85;cursor:pointer;white-space:nowrap';
     const inSel = inHouses.includes(filterHouse);
     const lekSel = lekHouses.includes(filterHouse);
     const panelHouses = (openDrop === 'in' ? inHouses : openDrop === 'lek' ? lekHouses : []).map(h => ({
       label: h,
       style: filterHouse === h
-        ? 'font-size:13px;padding:6px 10px;background:#33ff66;color:#052b0f;font-weight:600;cursor:pointer;white-space:nowrap'
-        : 'font-size:13px;padding:6px 10px;border:1px solid #1f9e3f;color:#33ff66;cursor:pointer;white-space:nowrap',
+        ? 'font-size:15px;padding:7px 11px;background:#33ff66;color:#052b0f;font-weight:600;cursor:pointer;white-space:nowrap'
+        : 'font-size:15px;padding:7px 11px;border:1px solid #2fbf55;color:#5dff85;cursor:pointer;white-space:nowrap',
       onClick: () => this.setState({ filterHouse: h, openDrop: null }),
     }));
 
@@ -447,6 +502,9 @@ class Component extends DCLogic {
       panelHouses,
       results,
       isLoading: loading && people.length === 0,
+      isLocked: locked && !loading,
+      authMsg,
+      retry: () => location.reload(),
       hasResults: filtered.length > 0,
       noResults: !loading && people.length > 0 && filtered.length === 0,
       sel,
