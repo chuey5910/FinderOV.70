@@ -23,7 +23,7 @@ function doGet(e) {
   var auth = authorize(idToken);
   if (!auth.ok) return json({ error: auth.error, message: auth.message });
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var sheet = getDataSheet();
   var rows = sheet.getDataRange().getValues();
   var headers = rows.shift();
   var data = rows
@@ -160,7 +160,7 @@ function replyText(replyToken, msg) {
 // ====== 3) แจ้งเตือนวันเกิดอัตโนมัติ ======
 // ตั้ง time-driven trigger ให้รันฟังก์ชันนี้ทุกเช้า (ดูขั้นตอนด้านล่าง)
 function notifyBirthdays() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var sheet = getDataSheet();
   var rows = sheet.getDataRange().getValues();
   var headers = rows.shift().map(function (h) { return String(h).trim(); });
 
@@ -255,4 +255,47 @@ function testToken() {
     Logger.log('❌ token ใช้ไม่ได้ (' + res.getResponseCode() + ') — ไปคัดลอก Channel access token ใหม่ใน LINE Developers');
   }
   Logger.log('กลุ่มหลัก (GROUP_ID): ' + (getGroupId() || '— ยังไม่มี: พิมพ์อะไรก็ได้ในกลุ่ม 1 ครั้ง'));
+  Logger.log('แท็บข้อมูลที่เว็บอ่าน: "' + getDataSheet().getName() + '"');
+}
+
+// ====== แท็บข้อมูลหลัก (ตรวจแล้ว) ======
+// ล็อกด้วย ID ของแท็บ (ไม่ใช่ลำดับหรือชื่อ) — เพิ่มแท็บคำตอบจาก Google Form / ย้ายลำดับ / เปลี่ยนชื่อ
+// ก็ยังอ่านแท็บเดิม ครั้งแรกที่เรียกจะล็อกแท็บแรกสุดในขณะนั้น
+// ถ้าต้องการเปลี่ยน: ใน Google Sheet เปิดแท็บที่ต้องการ → เมนู FINDER → ใช้แท็บนี้เป็นข้อมูลหลัก
+function getDataSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('DATA_SHEET_ID');
+  if (id) {
+    var sheets = ss.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      if (String(sheets[i].getSheetId()) === id) return sheets[i];
+    }
+    throw new Error('ไม่พบแท็บข้อมูลหลัก (ถูกลบ?) — เปิดแท็บที่ถูกต้อง → เมนู FINDER → ใช้แท็บนี้เป็นข้อมูลหลัก');
+  }
+  var first = ss.getSheets()[0];
+  props.setProperty('DATA_SHEET_ID', String(first.getSheetId()));
+  return first;
+}
+
+// เมนู FINDER ใน Google Sheet
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('FINDER')
+    .addItem('ดูแท็บข้อมูลหลักปัจจุบัน', 'showDataSheet')
+    .addItem('ใช้แท็บนี้เป็นข้อมูลหลัก', 'lockDataSheet')
+    .addToUi();
+}
+
+function showDataSheet() {
+  SpreadsheetApp.getUi().alert('เว็บและบอทอ่านข้อมูลจากแท็บ: "' + getDataSheet().getName() + '"');
+}
+
+function lockDataSheet() {
+  var ui = SpreadsheetApp.getUi();
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var ok = ui.alert('ใช้แท็บ "' + sheet.getName() + '" เป็นข้อมูลหลัก?',
+    'เว็บและบอทจะอ่านข้อมูลจากแท็บนี้ — ต้องเป็นข้อมูลที่ตรวจแล้วเท่านั้น', ui.ButtonSet.YES_NO);
+  if (ok !== ui.Button.YES) return;
+  PropertiesService.getScriptProperties().setProperty('DATA_SHEET_ID', String(sheet.getSheetId()));
+  ui.alert('ล็อกแท็บข้อมูลหลักเป็น "' + sheet.getName() + '" แล้ว');
 }
