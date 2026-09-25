@@ -457,31 +457,66 @@ function updatedColumn(headers) {
   return -1;
 }
 
-// เบอร์โทรที่ 0 หน้าหายไปแล้ว (ตัวเลข/ข้อความ 9 หลักขึ้นต้น 6, 8, 9) → เติม 0 กลับ
-function fixPhone(v) {
-  if (typeof v === 'number' && v >= 1e8 && v < 1e9) return '0' + v;
+// ที่อยู่ต่างประเทศ: ไม่มีอักษรไทยเลย (เช่น "Denver colorado") หรือมีชื่อประเทศ/เมืองต่างประเทศ
+var FOREIGN_WORDS = ['ต่างประเทศ', 'อเมริกา', 'สหรัฐ', 'แคนาดา', 'อังกฤษ', 'ญี่ปุ่น', 'จีน', 'เกาหลี', 'ไต้หวัน',
+  'ฮ่องกง', 'สิงคโปร์', 'มาเลเซีย', 'อินโดนีเซีย', 'เวียดนาม', 'ลาว', 'กัมพูชา', 'พม่า', 'เมียนมา', 'อินเดีย',
+  'ออสเตรเลีย', 'นิวซีแลนด์', 'เยอรมัน', 'ฝรั่งเศส', 'สเปน', 'โปรตุเกส', 'อิตาลี', 'สวิส', 'เนเธอร์แลนด์',
+  'สวีเดน', 'นอร์เวย์', 'เดนมาร์ก', 'ดูไบ', 'กาตาร์', 'ซาอุ', 'อิสราเอล', 'รัสเซีย'];
+
+function isForeignAddress(addr) {
+  var a = trimStr(addr);
+  if (!a) return false;                                   // ไม่ระบุ → ถือว่าอยู่ไทย (คนส่วนใหญ่)
+  if (!/[\u0E00-\u0E7F]/.test(a) && /[a-z]/i.test(a)) return true;
+  return FOREIGN_WORDS.some(function (w) { return a.indexOf(w) !== -1; });
+}
+
+// เบอร์มือถือไทยที่ 0 หน้าหาย (9 หลักขึ้นต้น 6, 8, 9) → เติม 0 กลับ
+// ไม่แตะ: คนที่อยู่ต่างประเทศ (เบอร์สเปน/โปรตุเกสก็ 9 หลักขึ้นต้น 6/9), เบอร์ที่มี + หรือรูปแบบอื่น
+function fixPhone(v, addr) {
+  if (isForeignAddress(addr)) return v;
+  if (typeof v === 'number' && v >= 1e8 && v < 1e9 && /^[689]/.test(String(v))) return '0' + v;
   if (typeof v === 'string' && /^[689]\d{8}$/.test(v.trim())) return '0' + v.trim();
   return v;
+}
+
+function phoneAndAddressColumns(headers) {
+  var iTel = -1, iAddr = -1;
+  headers.forEach(function (h, i) {
+    if (iTel === -1 && h.indexOf('เบอร์') !== -1) iTel = i;
+    if (iAddr === -1 && (h.indexOf('ที่อยู่') !== -1 || h.indexOf('จังหวัด') !== -1)) iAddr = i;
+  });
+  return { tel: iTel, addr: iAddr };
 }
 
 // เมนู: ซ่อมเบอร์โทรที่ 0 หน้าหายทั้งแท็บข้อมูลหลัก
 function fixAllPhones() {
   var ui = SpreadsheetApp.getUi();
   var data = getDataSheet();
-  var h = data.getRange(1, 1, 1, data.getLastColumn()).getValues()[0].map(trimStr);
-  var iTel = -1;
-  h.forEach(function (x, i) { if (iTel === -1 && x.indexOf('เบอร์') !== -1) iTel = i; });
-  if (iTel === -1 || data.getLastRow() < 2) { ui.alert('ไม่พบคอลัมน์เบอร์โทร'); return; }
-  var range = data.getRange(2, iTel + 1, data.getLastRow() - 1, 1);
-  var vals = range.getValues(), fixed = [];
-  vals.forEach(function (r, i) {
-    var v = fixPhone(r[0]);
-    if (v !== r[0]) { fixed.push('แถว ' + (i + 2) + ': ' + v); r[0] = v; }
+  var all = data.getDataRange().getValues();
+  var h = all.shift().map(trimStr);
+  var c = phoneAndAddressColumns(h);
+  if (c.tel === -1 || !all.length) { ui.alert('ไม่พบคอลัมน์เบอร์โทร'); return; }
+  var iFirst = h.indexOf('ชื่อ'), iLast = h.indexOf('นามสกุล');
+  var name = function (r) { return trimStr((iFirst !== -1 ? r[iFirst] : '') + ' ' + (iLast !== -1 ? r[iLast] : '')); };
+  var addrOf = function (r) { return c.addr === -1 ? '' : r[c.addr]; };
+  var vals = all.map(function (r) { return [r[c.tel]]; });
+  var fixed = [], skipped = [];
+  all.forEach(function (r, i) {
+    var v = r[c.tel];
+    if (fixPhone(v, '') !== v && isForeignAddress(addrOf(r))) {
+      skipped.push('แถว ' + (i + 2) + ' ' + name(r) + ': ' + v + ' (' + trimStr(addrOf(r)) + ')');
+      return;
+    }
+    var nv = fixPhone(v, addrOf(r));
+    if (nv !== v) { fixed.push('แถว ' + (i + 2) + ' ' + name(r) + ': ' + v + ' → ' + nv); vals[i][0] = nv; }
   });
-  if (!fixed.length) { ui.alert('เบอร์โทรครบทุกแถวแล้ว ไม่มีแถวที่ 0 หาย'); return; }
+  var skipMsg = skipped.length ? '\n\n⏭️ ข้าม (อยู่ต่างประเทศ — แก้เองถ้าจำเป็น):\n' + skipped.join('\n') : '';
+  if (!fixed.length) { ui.alert('ไม่มีเบอร์ที่ต้องซ่อม', 'เบอร์มือถือไทยครบ 0 ทุกแถวแล้ว' + skipMsg, ui.ButtonSet.OK); return; }
+  if (ui.alert('ซ่อมเบอร์ ' + fixed.length + ' แถว?', fixed.join('\n') + skipMsg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  var range = data.getRange(2, c.tel + 1, vals.length, 1);
   range.setNumberFormat('@');                   // ทั้งคอลัมน์เป็นข้อความ — ต่อไปพิมพ์ 0 นำหน้าได้ไม่หาย
   range.setValues(vals);
-  ui.alert('ซ่อมเบอร์โทรแล้ว ' + fixed.length + ' แถว', fixed.join('\n'), ui.ButtonSet.OK);
+  ui.alert('ซ่อมเบอร์โทรแล้ว ' + fixed.length + ' แถว');
 }
 
 // ข้อความที่ต้องเก็บเป็นข้อความ เช่น เบอร์ "0981234567" — ไม่งั้น Sheet แปลงเป็นตัวเลขแล้ว 0 หน้าหาย
@@ -490,8 +525,8 @@ function isTextLike(v) {
 }
 
 // เขียนทั้งแถว: ช่องเบอร์ซ่อม 0 หน้า และตั้งรูปแบบ "ข้อความ" ให้ช่องที่ขึ้นต้นด้วย 0 / + ก่อนเขียน
-function writeRow(sheet, row, values, iTel) {
-  if (iTel !== -1) values[iTel] = fixPhone(values[iTel]);
+function writeRow(sheet, row, values, c) {
+  if (c.tel !== -1) values[c.tel] = fixPhone(values[c.tel], c.addr === -1 ? '' : values[c.addr]);
   values.forEach(function (v, j) { if (isTextLike(v)) sheet.getRange(row, j + 1).setNumberFormat('@'); });
   sheet.getRange(row, 1, 1, values.length).setValues([values]);
 }
@@ -603,8 +638,7 @@ function transferApproved() {
     if (ui.alert('ย้ายไปแท็บ "' + data.getName() + '"?', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
     var width = dh.length;
-    var iTel = -1;
-    dh.forEach(function (h, i) { if (iTel === -1 && h.indexOf('เบอร์') !== -1) iTel = i; });
+    var pc = phoneAndAddressColumns(dh);
     var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd/M/yyyy HH:mm');
     plan.items.forEach(function (it) {
       var row = it.row;
@@ -612,12 +646,12 @@ function transferApproved() {
         var range = data.getRange(row, 1, 1, width);
         var cur = range.getValues()[0];
         mergeInto(cur, it.rec, [dh.indexOf('ชื่อ'), dh.indexOf('นามสกุล')]);
-        writeRow(data, row, cur, iTel);
+        writeRow(data, row, cur, pc);
       } else {
         row = data.getLastRow() + 1;
         if (row > 2) data.getRange(2, 1, 1, width).copyTo(data.getRange(row, 1, 1, width),
           SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
-        writeRow(data, row, it.rec, iTel);
+        writeRow(data, row, it.rec, pc);
       }
       var note = (it.row ? 'อัปเดต' : 'เพิ่มใหม่') + ' แถว ' + row + ' · ' + stamp;
       it.respRows.forEach(function (rr) { resp.getRange(rr, cols.status + 1).setValue(note); });
@@ -802,7 +836,7 @@ function findByArea(q) {
     .map(function (r, i) {
       // อีโมจิประจำตัวตามลำดับแถวในข้อมูลหลัก → ไม่ซ้ำกันทั้งรุ่น และเป็นตัวเดิมทุกครั้ง
       return { name: (val(r, iFirst) + ' ' + val(r, iLast)).trim(), chaya: val(r, iChaya),
-               tel: String(fixPhone(r[iTel] === undefined ? '' : r[iTel])).trim(), area: r[iArea], emoji: PERSON_EMOJIS[i % PERSON_EMOJIS.length] };
+               tel: String(fixPhone(r[iTel] === undefined ? '' : r[iTel], r[iArea])).trim(), area: r[iArea], emoji: PERSON_EMOJIS[i % PERSON_EMOJIS.length] };
     })
     .filter(function (p) { return p.name && areaMatch(p.area, terms); })
     .sort(function (a, b) { return a.name.localeCompare(b.name, 'th'); });
