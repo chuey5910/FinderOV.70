@@ -371,6 +371,11 @@ class Component extends DCLogic {
     const last = g(['นามสกุล','last']);
     if(!first && !last) return null;
     const namePart = (first.split('.').pop() || first).trim();
+    // เบอร์มือถือไทยที่ 0 หน้าหาย (9 หลักขึ้นต้น 6/8/9) → เติมคืน — ยกเว้นคนที่อยู่ต่างประเทศ
+    const addr = g(['จว.ที่อยู่','จังหวัด','province']);
+    const foreign = addr && (!/[\u0E00-\u0E7F]/.test(addr) && /[a-z]/i.test(addr) ||
+      /ต่างประเทศ|อเมริกา|สหรัฐ|แคนาดา|อังกฤษ|ญี่ปุ่น|จีน|เกาหลี|ไต้หวัน|ฮ่องกง|สิงคโปร์|มาเลเซีย|อินโดนีเซีย|เวียดนาม|ลาว|กัมพูชา|พม่า|เมียนมา|อินเดีย|ออสเตรเลีย|นิวซีแลนด์|เยอรมัน|ฝรั่งเศส|สเปน|โปรตุเกส|อิตาลี|สวิส|เนเธอร์แลนด์|สวีเดน|นอร์เวย์|เดนมาร์ก|ดูไบ|กาตาร์|ซาอุ|อิสราเอล|รัสเซีย/.test(addr));
+    const telRaw = g(['เบอร์โทรศัพท์','เบอร์โทร','tel']);
     return {
       id: i + 1,
       initials: (namePart || '?').slice(0, 2),
@@ -378,7 +383,7 @@ class Component extends DCLogic {
       chaya: g(['ฉายา']),
       catLek: g(['คณะเด็กเล็ก']),
       catIn: g(['คณะเด็กใน']),
-      tel: g(['เบอร์โทรศัพท์','เบอร์โทร','tel']).replace(/^([689]\d{8})$/, '0$1'), // 0 หน้าหายใน Sheet → เติมคืน
+      tel: foreign ? telRaw : telRaw.replace(/^([689]\d{8})$/, '0$1'),
       line: g(['ID Line','IDLine','id line','line']),
       dob: g(['วันเดือนปีเกิด (คศ)','วันเดือนปีเกิด','วันเกิด','dob']),
       ageRaw: g(['อายุ','age']),
