@@ -317,6 +317,9 @@ function lockDataSheet() {
 var COL_CHECK  = 'ตรวจแล้ว';
 var COL_STATUS = 'สถานะการย้าย';
 var COL_ALIASES = { 'อัพเดตล่าสุด': ['ประทับเวลา', 'timestamp'] };
+// คอลัมน์ "อัพเดตล่าสุด" สะกดได้หลายแบบ (อัพเดต/อัปเดต/อัพเดท/อัปเดท/updated) → ใช้ "ประทับเวลา" ของ Form
+var UPDATED_RE = /อ.?[พป]เด[ตท]|update/i;
+var STAMP_RE = /ประทับเวลา|timestamp/i;
 
 function getResponseSheet() {
   var dataId = getDataSheet().getSheetId();
@@ -349,6 +352,9 @@ function mapColumns(dataHeaders, respHeaders) {
         if (baseKey(respHeaders[j]) && baseKey(respHeaders[j]) === baseKey(n)) { found = j; return; }
       }
     });
+    if (found === -1 && UPDATED_RE.test(h)) {
+      respHeaders.forEach(function (r, i) { if (found === -1 && STAMP_RE.test(trimStr(r))) found = i; });
+    }
     map.push(found);
     if (found === -1 && h) missing.push(h);
   });
@@ -419,6 +425,24 @@ function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, co
     if (!hit) keys.forEach(function (k) { if (!(k in index)) index[k] = { item: item }; });
   });
   return { items: items, missing: m.missing };
+}
+
+// เบอร์โทรที่ 0 หน้าหายไปแล้ว (เก็บเป็นตัวเลข 9 หลัก) → เติม 0 กลับ
+function fixPhone(v) {
+  if (typeof v === 'number' && v >= 1e8 && v < 1e9) return '0' + v;
+  return v;
+}
+
+// ข้อความที่ต้องเก็บเป็นข้อความ เช่น เบอร์ "0981234567" — ไม่งั้น Sheet แปลงเป็นตัวเลขแล้ว 0 หน้าหาย
+function isTextLike(v) {
+  return typeof v === 'string' && /^[0+][\d\s\-+()]+$/.test(v.trim());
+}
+
+// เขียนทั้งแถว: ช่องเบอร์ซ่อม 0 หน้า และตั้งรูปแบบ "ข้อความ" ให้ช่องที่ขึ้นต้นด้วย 0 / + ก่อนเขียน
+function writeRow(sheet, row, values, iTel) {
+  if (iTel !== -1) values[iTel] = fixPhone(values[iTel]);
+  values.forEach(function (v, j) { if (isTextLike(v)) sheet.getRange(row, j + 1).setNumberFormat('@'); });
+  sheet.getRange(row, 1, 1, values.length).setValues([values]);
 }
 
 // เขียนทับเฉพาะช่องที่มีค่า — ช่องที่คำตอบเว้นว่างไว้จะคงข้อมูลเดิม (skip = index ที่ห้ามแก้)
@@ -504,6 +528,8 @@ function transferApproved() {
     if (ui.alert('ย้ายไปแท็บ "' + data.getName() + '"?', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
     var width = dh.length;
+    var iTel = -1;
+    dh.forEach(function (h, i) { if (iTel === -1 && h.indexOf('เบอร์') !== -1) iTel = i; });
     var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd/M/yyyy HH:mm');
     plan.items.forEach(function (it) {
       var row = it.row;
@@ -511,12 +537,12 @@ function transferApproved() {
         var range = data.getRange(row, 1, 1, width);
         var cur = range.getValues()[0];
         mergeInto(cur, it.rec, [dh.indexOf('ชื่อ'), dh.indexOf('นามสกุล')]);
-        range.setValues([cur]);
+        writeRow(data, row, cur, iTel);
       } else {
         row = data.getLastRow() + 1;
-        data.getRange(row, 1, 1, width).setValues([it.rec]);
         if (row > 2) data.getRange(2, 1, 1, width).copyTo(data.getRange(row, 1, 1, width),
           SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+        writeRow(data, row, it.rec, iTel);
       }
       var note = (it.row ? 'อัปเดต' : 'เพิ่มใหม่') + ' แถว ' + row + ' · ' + stamp;
       it.respRows.forEach(function (rr) { resp.getRange(rr, cols.status + 1).setValue(note); });
