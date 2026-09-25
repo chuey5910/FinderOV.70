@@ -40,7 +40,7 @@ function doGet(e) {
           var y = v.getFullYear() + 543;
           v = d + '/' + m + '/' + y;
         }
-        o[String(h).trim()] = v;
+        o[String(h).replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '').trim()] = v;
       });
       return o;
     });
@@ -288,6 +288,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('FINDER')
     .addItem('✅ ย้ายข้อมูลที่ตรวจแล้ว', 'transferApproved')
     .addItem('เตรียม / เติมช่องติ๊ก "ตรวจแล้ว"', 'setupReview')
+    .addItem('ตรวจการจับคู่คอลัมน์', 'showColumnMap')
     .addSeparator()
     .addItem('ดูแท็บข้อมูลหลักปัจจุบัน', 'showDataSheet')
     .addItem('ใช้แท็บนี้เป็นข้อมูลหลัก', 'lockDataSheet')
@@ -330,7 +331,9 @@ function getResponseSheet() {
   throw new Error('ไม่พบแท็บคำตอบจาก Google Form ในไฟล์นี้');
 }
 
-function trimStr(v) { return String(v == null ? '' : v).trim(); }
+// ตัดอักษรที่มองไม่เห็น (zero-width space ฯลฯ ที่ติดมากับข้อความไทยที่ก๊อปมา) แล้ว trim
+var HIDDEN_RE = /[\u200b-\u200d\u2060\ufeff\u00ad]/g;
+function trimStr(v) { return String(v == null ? '' : v).replace(HIDDEN_RE, '').trim(); }
 function normKey(h) { return trimStr(h).replace(/[\s.\-_()]/g, '').toLowerCase(); }
 // ไม่สนข้อความในวงเล็บ: "วันเดือนปีเกิด (คศ)" = "วันเดือนปีเกิด"
 function baseKey(h) { return normKey(trimStr(h).replace(/\(.*?\)/g, '')); }
@@ -352,7 +355,7 @@ function mapColumns(dataHeaders, respHeaders) {
         if (baseKey(respHeaders[j]) && baseKey(respHeaders[j]) === baseKey(n)) { found = j; return; }
       }
     });
-    if (found === -1 && UPDATED_RE.test(h)) {
+    if (found === -1 && UPDATED_RE.test(normKey(h))) {
       respHeaders.forEach(function (r, i) { if (found === -1 && STAMP_RE.test(trimStr(r))) found = i; });
     }
     map.push(found);
@@ -402,6 +405,7 @@ function fillAge(headers, rec, today) {
 // วางแผนการย้าย: แยกเป็นอัปเดตแถวเดิม / เพิ่มใหม่ (คำตอบซ้ำคนเดียวกันในรอบเดียวรวมเป็นรายการเดียว)
 function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, colStatus, today) {
   var m = mapColumns(dataHeaders, respHeaders);
+  var iUpd = updatedColumn(dataHeaders);
   var index = {};
   dataRows.forEach(function (r, i) {
     personKeys(dataHeaders, r).forEach(function (k) { if (!(k in index)) index[k] = { row: i + 2 }; });
@@ -410,6 +414,8 @@ function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, co
   respRows.forEach(function (r, i) {
     if (r[colCheck] !== true || trimStr(r[colStatus]) !== '') return;
     var rec = m.map.map(function (ri) { return ri === -1 ? '' : r[ri]; });
+    // "อัพเดตล่าสุด" ต้องเปลี่ยนทุกครั้ง: ใช้ประทับเวลาของ Form ถ้าไม่มีใช้เวลาที่กดย้าย
+    if (iUpd !== -1 && (m.map[iUpd] === -1 || trimStr(rec[iUpd]) === '')) rec[iUpd] = today;
     fillAge(dataHeaders, rec, today);
     var keys = personKeys(dataHeaders, rec);
     if (!keys.length) return;
@@ -424,7 +430,12 @@ function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, co
     items.push(item);
     if (!hit) keys.forEach(function (k) { if (!(k in index)) index[k] = { item: item }; });
   });
-  return { items: items, missing: m.missing };
+  return { items: items, missing: m.missing, map: m.map, iUpd: iUpd };
+}
+
+function updatedColumn(headers) {
+  for (var i = 0; i < headers.length; i++) if (UPDATED_RE.test(normKey(headers[i]))) return i;
+  return -1;
 }
 
 // เบอร์โทรที่ 0 หน้าหายไปแล้ว (เก็บเป็นตัวเลข 9 หลัก) → เติม 0 กลับ
@@ -507,6 +518,22 @@ function setupReview() {
     ui.ButtonSet.OK);
 }
 
+// แสดงว่าแต่ละคอลัมน์ของข้อมูลหลักจะรับค่าจากคอลัมน์ไหนของฟอร์ม
+function showColumnMap() {
+  var data = getDataSheet(), resp = getResponseSheet();
+  var rawD = data.getRange(1, 1, 1, data.getLastColumn()).getValues()[0];
+  var rawR = resp.getRange(1, 1, 1, resp.getLastColumn()).getValues()[0];
+  var dh = rawD.map(trimStr), rh = rawR.map(trimStr);
+  var m = mapColumns(dh, rh), iUpd = updatedColumn(dh);
+  var hidden = function (v) { return String(v).search(HIDDEN_RE) !== -1 ? ' (มีอักษรซ่อน — แก้ให้แล้ว)' : ''; };
+  var lines = dh.map(function (h, i) {
+    var src = m.map[i] !== -1 ? rh[m.map[i]] : (i === iUpd ? 'เวลาที่กดย้าย' : (h === 'อายุ' ? 'คำนวณจากวันเกิด' : '— ไม่มีในฟอร์ม'));
+    return (m.map[i] !== -1 || i === iUpd || h === 'อายุ' ? '✅ ' : '⚠️ ') + h + hidden(rawD[i]) + '  ←  ' + src;
+  });
+  SpreadsheetApp.getUi().alert('การจับคู่คอลัมน์', '"' + data.getName() + '"  ←  "' + resp.getName() + '"\n\n' + lines.join('\n'),
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
 function transferApproved() {
   var ui = SpreadsheetApp.getUi();
   var lock = LockService.getDocumentLock();
@@ -524,6 +551,8 @@ function transferApproved() {
     var list = function (arr) { return arr.map(function (it) { return '• ' + it.name; }).join('\n'); };
     var msg = (adds.length ? 'เพิ่มคนใหม่ ' + adds.length + ' คน:\n' + list(adds) + '\n\n' : '') +
               (ups.length ? 'อัปเดตข้อมูลเดิม ' + ups.length + ' คน:\n' + list(ups) + '\n\n' : '') +
+              (plan.iUpd !== -1 ? '🕒 ' + dh[plan.iUpd] + ' ← ' +
+                (plan.map[plan.iUpd] !== -1 ? rh[plan.map[plan.iUpd]] + ' ของฟอร์ม' : 'เวลาที่กดย้าย') + '\n' : '') +
               (plan.missing.length ? '⚠️ คอลัมน์ที่ไม่มีในคำตอบ (จะไม่ถูกแก้): ' + plan.missing.join(', ') : '');
     if (ui.alert('ย้ายไปแท็บ "' + data.getName() + '"?', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
