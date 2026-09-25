@@ -525,10 +525,23 @@ function isTextLike(v) {
 }
 
 // เขียนทั้งแถว: ช่องเบอร์ซ่อม 0 หน้า และตั้งรูปแบบ "ข้อความ" ให้ช่องที่ขึ้นต้นด้วย 0 / + ก่อนเขียน
+// ช่องที่มีสูตรอยู่แล้ว (เช่น อายุ) เก็บสูตรไว้ ไม่เขียนค่าทับ
 function writeRow(sheet, row, values, c) {
   if (c.tel !== -1) values[c.tel] = fixPhone(values[c.tel], c.addr === -1 ? '' : values[c.addr]);
-  values.forEach(function (v, j) { if (isTextLike(v)) sheet.getRange(row, j + 1).setNumberFormat('@'); });
-  sheet.getRange(row, 1, 1, values.length).setValues([values]);
+  var range = sheet.getRange(row, 1, 1, values.length);
+  var formulas = range.getFormulas()[0];
+  values = values.map(function (v, j) { return formulas[j] ? formulas[j] : v; });
+  values.forEach(function (v, j) { if (!formulas[j] && isTextLike(v)) sheet.getRange(row, j + 1).setNumberFormat('@'); });
+  range.setValues([values]);
+}
+
+// แถวสุดท้ายที่มีชื่อหรือนามสกุล — ไม่ใช้ getLastRow() เพราะสูตรที่ลากไว้ (เช่น อายุ = 126) ทำให้ดูเหมือนมีข้อมูล
+function lastPersonRow(headers, rows) {
+  var cols = [headers.indexOf('ชื่อ'), headers.indexOf('นามสกุล')].filter(function (i) { return i !== -1; });
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (cols.some(function (c) { return trimStr(rows[i][c]) !== ''; })) return i + 2;   // +1 หัวตาราง +1 index
+  }
+  return 1;
 }
 
 // เขียนทับเฉพาะช่องที่มีค่า — ช่องที่คำตอบเว้นว่างไว้จะคงข้อมูลเดิม (skip = index ที่ห้ามแก้)
@@ -639,6 +652,7 @@ function transferApproved() {
 
     var width = dh.length;
     var pc = phoneAndAddressColumns(dh);
+    var nextRow = lastPersonRow(dh, dv) + 1;
     var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'd/M/yyyy HH:mm');
     plan.items.forEach(function (it) {
       var row = it.row;
@@ -648,7 +662,7 @@ function transferApproved() {
         mergeInto(cur, it.rec, [dh.indexOf('ชื่อ'), dh.indexOf('นามสกุล')]);
         writeRow(data, row, cur, pc);
       } else {
-        row = data.getLastRow() + 1;
+        row = nextRow++;
         if (row > 2) data.getRange(2, 1, 1, width).copyTo(data.getRange(row, 1, 1, width),
           SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
         writeRow(data, row, it.rec, pc);
