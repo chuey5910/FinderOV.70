@@ -378,7 +378,7 @@ class Component extends DCLogic {
       chaya: g(['ฉายา']),
       catLek: g(['คณะเด็กเล็ก']),
       catIn: g(['คณะเด็กใน']),
-      tel: g(['เบอร์โทรศัพท์','เบอร์โทร','tel']),
+      tel: g(['เบอร์โทรศัพท์','เบอร์โทร','tel']).replace(/^([689]\d{8})$/, '0$1'), // 0 หน้าหายใน Sheet → เติมคืน
       line: g(['ID Line','IDLine','id line','line']),
       dob: g(['วันเดือนปีเกิด (คศ)','วันเดือนปีเกิด','วันเกิด','dob']),
       ageRaw: g(['อายุ','age']),

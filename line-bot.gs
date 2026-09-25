@@ -289,6 +289,7 @@ function onOpen() {
     .addItem('✅ ย้ายข้อมูลที่ตรวจแล้ว', 'transferApproved')
     .addItem('เตรียม / เติมช่องติ๊ก "ตรวจแล้ว"', 'setupReview')
     .addItem('ตรวจการจับคู่คอลัมน์', 'showColumnMap')
+    .addItem('ซ่อมเบอร์โทรที่ 0 หาย', 'fixAllPhones')
     .addSeparator()
     .addItem('ดูแท็บข้อมูลหลักปัจจุบัน', 'showDataSheet')
     .addItem('ใช้แท็บนี้เป็นข้อมูลหลัก', 'lockDataSheet')
@@ -456,10 +457,31 @@ function updatedColumn(headers) {
   return -1;
 }
 
-// เบอร์โทรที่ 0 หน้าหายไปแล้ว (เก็บเป็นตัวเลข 9 หลัก) → เติม 0 กลับ
+// เบอร์โทรที่ 0 หน้าหายไปแล้ว (ตัวเลข/ข้อความ 9 หลักขึ้นต้น 6, 8, 9) → เติม 0 กลับ
 function fixPhone(v) {
   if (typeof v === 'number' && v >= 1e8 && v < 1e9) return '0' + v;
+  if (typeof v === 'string' && /^[689]\d{8}$/.test(v.trim())) return '0' + v.trim();
   return v;
+}
+
+// เมนู: ซ่อมเบอร์โทรที่ 0 หน้าหายทั้งแท็บข้อมูลหลัก
+function fixAllPhones() {
+  var ui = SpreadsheetApp.getUi();
+  var data = getDataSheet();
+  var h = data.getRange(1, 1, 1, data.getLastColumn()).getValues()[0].map(trimStr);
+  var iTel = -1;
+  h.forEach(function (x, i) { if (iTel === -1 && x.indexOf('เบอร์') !== -1) iTel = i; });
+  if (iTel === -1 || data.getLastRow() < 2) { ui.alert('ไม่พบคอลัมน์เบอร์โทร'); return; }
+  var range = data.getRange(2, iTel + 1, data.getLastRow() - 1, 1);
+  var vals = range.getValues(), fixed = [];
+  vals.forEach(function (r, i) {
+    var v = fixPhone(r[0]);
+    if (v !== r[0]) { fixed.push('แถว ' + (i + 2) + ': ' + v); r[0] = v; }
+  });
+  if (!fixed.length) { ui.alert('เบอร์โทรครบทุกแถวแล้ว ไม่มีแถวที่ 0 หาย'); return; }
+  range.setNumberFormat('@');                   // ทั้งคอลัมน์เป็นข้อความ — ต่อไปพิมพ์ 0 นำหน้าได้ไม่หาย
+  range.setValues(vals);
+  ui.alert('ซ่อมเบอร์โทรแล้ว ' + fixed.length + ' แถว', fixed.join('\n'), ui.ButtonSet.OK);
 }
 
 // ข้อความที่ต้องเก็บเป็นข้อความ เช่น เบอร์ "0981234567" — ไม่งั้น Sheet แปลงเป็นตัวเลขแล้ว 0 หน้าหาย
@@ -780,7 +802,7 @@ function findByArea(q) {
     .map(function (r, i) {
       // อีโมจิประจำตัวตามลำดับแถวในข้อมูลหลัก → ไม่ซ้ำกันทั้งรุ่น และเป็นตัวเดิมทุกครั้ง
       return { name: (val(r, iFirst) + ' ' + val(r, iLast)).trim(), chaya: val(r, iChaya),
-               tel: val(r, iTel), area: r[iArea], emoji: PERSON_EMOJIS[i % PERSON_EMOJIS.length] };
+               tel: String(fixPhone(r[iTel] === undefined ? '' : r[iTel])).trim(), area: r[iArea], emoji: PERSON_EMOJIS[i % PERSON_EMOJIS.length] };
     })
     .filter(function (p) { return p.name && areaMatch(p.area, terms); })
     .sort(function (a, b) { return a.name.localeCompare(b.name, 'th'); });
