@@ -40,7 +40,7 @@ function doGet(e) {
           var y = v.getFullYear() + 543;
           v = d + '/' + m + '/' + y;
         }
-        o[String(h).replace(/[\u200b-\u200d\u2060\ufeff\u00ad]/g, '').trim()] = v;
+        o[String(h).replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff\u00ad]/g, '').trim()] = v;
       });
       return o;
     });
@@ -332,7 +332,7 @@ function getResponseSheet() {
 }
 
 // ตัดอักษรที่มองไม่เห็น (zero-width space ฯลฯ ที่ติดมากับข้อความไทยที่ก๊อปมา) แล้ว trim
-var HIDDEN_RE = /[\u200b-\u200d\u2060\ufeff\u00ad]/g;
+var HIDDEN_RE = /[\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff\u00ad]/g;
 function trimStr(v) { return String(v == null ? '' : v).replace(HIDDEN_RE, '').trim(); }
 function normKey(h) { return trimStr(h).replace(/[\s.\-_()]/g, '').toLowerCase(); }
 // ไม่สนข้อความในวงเล็บ: "วันเดือนปีเกิด (คศ)" = "วันเดือนปีเกิด"
@@ -404,8 +404,8 @@ function fillAge(headers, rec, today) {
 
 // วางแผนการย้าย: แยกเป็นอัปเดตแถวเดิม / เพิ่มใหม่ (คำตอบซ้ำคนเดียวกันในรอบเดียวรวมเป็นรายการเดียว)
 function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, colStatus, today) {
-  var m = mapColumns(dataHeaders, respHeaders);
-  var iUpd = updatedColumn(dataHeaders);
+  var m = resolveColumns(dataHeaders, respHeaders, respRows);
+  var iUpd = m.iUpd;
   var index = {};
   dataRows.forEach(function (r, i) {
     personKeys(dataHeaders, r).forEach(function (k) { if (!(k in index)) index[k] = { row: i + 2 }; });
@@ -430,7 +430,25 @@ function planTransfer(dataHeaders, dataRows, respHeaders, respRows, colCheck, co
     items.push(item);
     if (!hit) keys.forEach(function (k) { if (!(k in index)) index[k] = { item: item }; });
   });
-  return { items: items, missing: m.missing, map: m.map, iUpd: iUpd };
+  return { items: items, missing: m.missing, map: m.map, iUpd: iUpd, stampFromColA: m.stampFromColA };
+}
+
+function isDate(v) { return Object.prototype.toString.call(v) === '[object Date]'; }
+
+// จับคู่คอลัมน์ + ถ้าหา "ประทับเวลา" จากชื่อไม่เจอ ใช้คอลัมน์ A ของแท็บคำตอบ (Google Form ใส่ประทับเวลาไว้คอลัมน์แรกเสมอ)
+function resolveColumns(dataHeaders, respHeaders, respRows) {
+  var m = mapColumns(dataHeaders, respHeaders);
+  var iUpd = updatedColumn(dataHeaders);
+  m.stampFromColA = false;
+  if (iUpd !== -1 && m.map[iUpd] === -1 &&
+      respRows.length && respRows.every(function (r) { return r[0] === '' || isDate(r[0]); }) &&
+      respRows.some(function (r) { return isDate(r[0]); })) {
+    m.map[iUpd] = 0;
+    m.stampFromColA = true;
+    m.missing = m.missing.filter(function (h) { return h !== dataHeaders[iUpd]; });
+  }
+  m.iUpd = iUpd;
+  return m;
 }
 
 function updatedColumn(headers) {
@@ -518,16 +536,21 @@ function setupReview() {
     ui.ButtonSet.OK);
 }
 
+function colLetter(i) { var s = ''; i++; while (i > 0) { var r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); } return s; }
+
 // แสดงว่าแต่ละคอลัมน์ของข้อมูลหลักจะรับค่าจากคอลัมน์ไหนของฟอร์ม
 function showColumnMap() {
   var data = getDataSheet(), resp = getResponseSheet();
   var rawD = data.getRange(1, 1, 1, data.getLastColumn()).getValues()[0];
   var rawR = resp.getRange(1, 1, 1, resp.getLastColumn()).getValues()[0];
   var dh = rawD.map(trimStr), rh = rawR.map(trimStr);
-  var m = mapColumns(dh, rh), iUpd = updatedColumn(dh);
+  var rv = resp.getDataRange().getValues(); rv.shift();
+  var m = resolveColumns(dh, rh, rv), iUpd = m.iUpd;
   var hidden = function (v) { return String(v).search(HIDDEN_RE) !== -1 ? ' (มีอักษรซ่อน — แก้ให้แล้ว)' : ''; };
   var lines = dh.map(function (h, i) {
-    var src = m.map[i] !== -1 ? rh[m.map[i]] : (i === iUpd ? 'เวลาที่กดย้าย' : (h === 'อายุ' ? 'คำนวณจากวันเกิด' : '— ไม่มีในฟอร์ม'));
+    var src = m.map[i] !== -1
+      ? (i === iUpd && m.stampFromColA ? 'ประทับเวลา (คอลัมน์ A ของฟอร์ม)' : rh[m.map[i]])
+      : (i === iUpd ? 'เวลาที่กดย้าย' : (h === 'อายุ' ? 'คำนวณจากวันเกิด' : '— ไม่มีในฟอร์ม'));
     return (m.map[i] !== -1 || i === iUpd || h === 'อายุ' ? '✅ ' : '⚠️ ') + h + hidden(rawD[i]) + '  ←  ' + src;
   });
   SpreadsheetApp.getUi().alert('การจับคู่คอลัมน์', '"' + data.getName() + '"  ←  "' + resp.getName() + '"\n\n' + lines.join('\n'),
@@ -552,7 +575,8 @@ function transferApproved() {
     var msg = (adds.length ? 'เพิ่มคนใหม่ ' + adds.length + ' คน:\n' + list(adds) + '\n\n' : '') +
               (ups.length ? 'อัปเดตข้อมูลเดิม ' + ups.length + ' คน:\n' + list(ups) + '\n\n' : '') +
               (plan.iUpd !== -1 ? '🕒 ' + dh[plan.iUpd] + ' ← ' +
-                (plan.map[plan.iUpd] !== -1 ? rh[plan.map[plan.iUpd]] + ' ของฟอร์ม' : 'เวลาที่กดย้าย') + '\n' : '') +
+                (plan.map[plan.iUpd] !== -1 ? 'ประทับเวลา (คอลัมน์ ' + colLetter(plan.map[plan.iUpd]) + ') ของฟอร์ม'
+                                            : 'เวลาที่กดย้าย') + '\n' : '') +
               (plan.missing.length ? '⚠️ คอลัมน์ที่ไม่มีในคำตอบ (จะไม่ถูกแก้): ' + plan.missing.join(', ') : '');
     if (ui.alert('ย้ายไปแท็บ "' + data.getName() + '"?', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
